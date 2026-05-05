@@ -4,7 +4,7 @@
 
 - 测试框架：pytest 8+
 - 当前用例：870 个
-- 运行方式：`uv run pytest`
+- 运行方式：`uv run --extra test python -m pytest`
 - 配置：`pyproject.toml` 中的 `[tool.pytest.ini_options]`
 
 ## 目录结构
@@ -15,7 +15,7 @@ tests/
 ├── test_toolkit.py      # 工具注册表测试
 ├── test_toolkit_mcp.py  # MCP 工具桥接测试
 ├── test_toolkit_schema.py # JSON Schema 参数校验测试
-├── test_toolkit_schema_value.py # JSON Schema value 校验测试
+├── test_toolkit_schema_value.py # JSON Schema 兼容错误消息测试
 ├── core/
 │   ├── test_engine.py   # Agent 循环测试
 │   ├── test_provider_types.py # Provider 响应类型测试
@@ -109,13 +109,13 @@ def test_compaction_budget_truncation_preserves_system():
 ## 按模块运行
 
 ```bash
-uv run pytest tests/core/           # 核心引擎
-uv run pytest tests/tools/     # 工具
-uv run pytest tests/context/         # 上下文压缩
-uv run pytest tests/memory/          # 记忆系统
-uv run pytest tests/skills/          # 技能系统
-uv run pytest tests/test_toolkit.py  # 工具注册表
-uv run pytest tests/test_toolkit_schema.py  # 工具参数 schema
+uv run --extra test python -m pytest tests/core/           # 核心引擎
+uv run --extra test python -m pytest tests/tools/          # 工具
+uv run --extra test python -m pytest tests/context/        # 上下文压缩
+uv run --extra test python -m pytest tests/memory/         # 记忆系统
+uv run --extra test python -m pytest tests/skills/         # 技能系统
+uv run --extra test python -m pytest tests/test_toolkit.py # 工具注册表
+uv run --extra test python -m pytest tests/test_toolkit_schema.py # 工具参数 schema
 ```
 
 ## 添加新测试
@@ -123,8 +123,8 @@ uv run pytest tests/test_toolkit_schema.py  # 工具参数 schema
 1. 在对应的 `tests/<module>/` 目录下创建 `test_<name>.py`
 2. 使用全局 fixture（`tmp_workspace`、`mock_settings` 等）
 3. 遵循命名规范：`test_<功能>_<场景>`
-4. 运行 `uv run pytest tests/<module>/test_<name>.py -v` 验证
-5. 确认全量测试通过：`uv run pytest`
+4. 运行 `uv run --extra test python -m pytest tests/<module>/test_<name>.py -v` 验证
+5. 确认全量测试通过：`uv run --extra test python -m pytest`
 
 ## 常见模式
 

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from .frontmatter import parse_frontmatter
+from ..frontmatter import parse_frontmatter
 from .store import get_memory_dir, VALID_TYPES
 
 import logging

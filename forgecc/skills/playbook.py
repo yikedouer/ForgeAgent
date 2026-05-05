@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .frontmatter import parse_frontmatter
+from ..frontmatter import parse_frontmatter
 
 
 # ── Playbook 定义 ─────────────────────────────────────

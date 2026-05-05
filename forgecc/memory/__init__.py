@@ -32,7 +32,7 @@ from .prefetch import (
     MemoryPrefetch,
     is_query_substantial,
 )
-from .frontmatter import parse_frontmatter, format_frontmatter
+from ..frontmatter import parse_frontmatter, format_frontmatter
 
 __all__ = [
     "get_memory_dir", "list_memories", "save_memory", "delete_memory",

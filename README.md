@@ -2,7 +2,7 @@
 
 从零构建的 Python Coding Agent，学习 [claw-code](https://github.com/ultraworkers/claw-code)（Claude Code 的 Rust 实现）的核心设计思想，用 Python 逐步复现其架构。
 
-这是一个**学习项目**，旨在深入理解 Agent 架构从配置加载到上下文压缩的每一层设计。全部源码约 9,000 行，仅依赖 `openai` + `rich` 两个第三方库，适合一行一行阅读。
+这是一个**学习项目**，旨在深入理解 Agent 架构从配置加载到上下文压缩的每一层设计。全部源码约 8,900 行，仅引入少量成熟依赖，适合一行一行阅读。
 
 ---
 
@@ -43,7 +43,7 @@
 | **Skill / Playbook** | 基于 Markdown + YAML frontmatter 的可复用提示模板 |
 | **流式输出** | 逐 token 实时打印，结合 Rich 彩色面板 |
 | **会话持久化** | 保存 / 恢复完整对话记录 |
-| **零配置启动** | 仅需 `openai` + `rich`（2 个依赖） |
+| **轻量依赖** | 运行时直接依赖 `openai` / `rich` / `jsonschema` / `python-dotenv` |
 
 ---
 
@@ -108,8 +108,7 @@ forgecc
 ### 运行测试
 
 ```bash
-uv pip install -e ".[test]"
-python -m pytest tests/ -v
+uv run --extra test python -m pytest tests/ -v
 ```
 
 当前测试套件包含 **870 个用例**，覆盖全部 7 个模块。
@@ -270,13 +269,13 @@ ForgeCC/
 ├── pyproject.toml                   # 构建 + 测试配置
 ├── .forgecc/skills/                 # 项目级 Skill 模板目录
 │
-├── forgecc/                         # 源码包（~9,000 行）
+├── forgecc/                         # 源码包（~8,900 行）
 │   ├── __init__.py                  #   版本声明
 │   ├── __main__.py                  #   python -m forgecc 入口
 │   ├── toolkit.py            (293)  #   装饰器驱动的工具注册表 + 权限执行 + Hook 事件
 │   ├── toolkit_mcp.py         (73)  #   MCP 远端工具桥接 spec 构建
-│   ├── toolkit_schema.py      (41)  #   工具参数 schema 入口
-│   ├── toolkit_schema_value.py (277) # 递归 JSON Schema value 校验
+│   ├── toolkit_schema.py     (235)  #   jsonschema 驱动的工具参数校验 + 错误消息适配
+│   ├── frontmatter.py         (58)  #   统一 frontmatter 解析与格式化
 │   │
 │   ├── core/                        # ── 引擎内核 ──
 │   │   ├── engine.py         (224)  #   Agent 核心门面 + public API
@@ -285,7 +284,7 @@ ForgeCC/
 │   │   ├── subagent_runtime.py  (402)  #   子 Agent runtime、运行记录、Team 并行与入口 API
 │   │   ├── engine_session.py (330)  #   Engine 初始化、记忆注入、压缩、checkpoint、状态 API
 │   │   ├── providers.py      (368)  #   LLM 适配、响应类型、错误分类、流式调用
-│   │   ├── settings.py       (316)  #   Settings dataclass + 四层级联加载 + Provider 预设
+│   │   ├── settings.py       (300)  #   Settings dataclass + dotenv 级联加载 + Provider 预设
 │   │   ├── mcp/                     #   MCP server 配置解析 + JSON-RPC/stdio 客户端
 │   │   │   ├── config.py      (86)  #     server 配置 dataclass + Claude 风格 JSON 解析
 │   │   │   ├── protocol.py   (133)  #     JSON-RPC client、协议类型、响应校验
@@ -325,12 +324,10 @@ ForgeCC/
 │   ├── memory/                      # ── 持久化记忆 ──
 │   │   ├── store.py          (243)  #   记忆 CRUD + MEMORY.md 索引
 │   │   ├── recall.py         (249)  #   语义召回（LLM 辅助选择）
-│   │   ├── prefetch.py       (124)  #   异步记忆预取（三门控）
-│   │   └── frontmatter.py     (54)  #   记忆文件 frontmatter 解析
+│   │   └── prefetch.py       (124)  #   异步记忆预取（三门控）
 │   │
 │   ├── skills/                      # ── Playbook 系统 ──
-│   │   ├── playbook.py       (190)  #   Skill 发现 + 解析 + 模板替换
-│   │   └── frontmatter.py     (46)  #   Skill YAML frontmatter 解析
+│   │   └── playbook.py       (190)  #   Skill 发现 + 解析 + 模板替换
 │   │
 │   └── interface/                   # ── 用户交互层 ──
 │       ├── repl.py           (235)  #   CLI REPL 壳层、Engine 生命周期、输入分派
@@ -586,7 +583,7 @@ return "(round budget exhausted)"
 - `store.py` — CRUD 操作 + MEMORY.md 索引维护
 - `recall.py` — 语义召回：扫描头部 → 格式化清单 → LLM 选择 → 加载内容
 - `prefetch.py` — 异步预取：三门控（实质查询 + 预算 + 文件存在）→ 线程池提交
-- `frontmatter.py` — 解析 `---\nkey: value\n---\nbody` 格式
+- `forgecc/frontmatter.py` — 解析 `---\nkey: value\n---\nbody` 格式，供 memory 与 skills 共用
 
 ---
 
@@ -653,7 +650,7 @@ toolkit.run_one(call_id, name, args)
 
 | 步骤 | 文件 | 行数 | 学什么 |
 |------|------|------|--------|
-| 1 | `core/settings.py` | 316 | Settings dataclass、.env 解析、Provider/Model 预设、四层级联加载 + os.environ 注入 |
+| 1 | `core/settings.py` | 300 | Settings dataclass、python-dotenv 解析、Provider/Model 预设、四层级联加载 + os.environ 注入 |
 | 2 | `core/errors.py` | 74 | 异常继承链、retryable 属性、isinstance 链 |
 | 3 | `core/permissions.py` | 151 | 枚举 × 风险级别矩阵、工作区边界路径检查 |
 
@@ -664,8 +661,7 @@ toolkit.run_one(call_id, name, args)
 | 步骤 | 文件 | 行数 | 学什么 |
 |------|------|------|--------|
 | 4 | `toolkit.py` | 293 | @tool 装饰器、全局目录、run_one/run_batch、工具 Hook |
-| 5 | `toolkit_schema.py` | 41 | 工具参数 schema 入口——root object、unknown 参数、additionalProperties |
-| 6 | `toolkit_schema_value.py` | 277 | JSON Schema value 校验——类型、组合 schema、数组/对象边界 |
+| 5 | `toolkit_schema.py` | 235 | 基于 jsonschema 的工具参数校验——root object、unknown 参数、组合 schema、数组/对象边界 |
 | 6 | `tools/reader.py` | 97 | **最简单的工具**——理解 @tool 用法 |
 | 7 | `tools/shell.py` | 291 | 两阶段安全护栏（静态拒绝 + 超时保护） |
 | 8 | `tools/editor.py` | 96 | 唯一性约束设计——防止歧义修改 |
@@ -717,7 +713,7 @@ toolkit.run_one(call_id, name, args)
 | 30 | `interface/repl.py` | 235 | CLI 交互壳层——输入分派、Engine 生命周期、权限确认回调 |
 | 31 | `interface/repl_commands.py` | 256 | REPL 命令集——12 个命令 + Skill 调用 + 计划模式命令 |
 
-> 学完全部 31 个核心路径（约 9,000 行源码），你就完整理解了一个生产级 Coding Agent 的架构。
+> 学完全部核心路径（约 8,900 行源码），你就完整理解了一个生产级 Coding Agent 的架构。
 
 ---
 
@@ -752,8 +748,7 @@ python -m pytest tests/ -v
 |------|---------|-------|---------|
 | toolkit | `test_toolkit.py` | 81 | 装饰器注册、catalog/lookup、run_one/run_batch、工具 Hook、MCP 工具桥接 |
 | toolkit MCP | `test_toolkit_mcp.py` | 3 | MCP 工具 spec 构建、远端名称路由、结果格式化 |
-| toolkit schema | `test_toolkit_schema.py` | 4 | JSON Schema 参数校验、patternProperties、uniqueItems、必填参数 |
-| toolkit schema value | `test_toolkit_schema_value.py` | 2 | JSON Schema value 校验、数值边界、嵌套对象 |
+| toolkit schema | `test_toolkit_schema.py` / `test_toolkit_schema_value.py` | 6 | JSON Schema 参数校验、patternProperties、uniqueItems、必填参数、数值边界、嵌套对象 |
 | settings | `core/test_settings.py` | 50 | .env 解析、级联加载、replace、for_model、Hook/MCP 配置 |
 | settings provider | `core/test_settings_provider.py` | 3 | Provider 预设、模型前缀推断、Azure endpoint/API version 解析 |
 | mcp | `core/test_mcp.py` | 20 | MCP server JSON 配置解析、JSON-RPC 握手、工具发现、工具调用、模块边界、生命周期管理、真实 stdio 冒烟、错误响应 |
@@ -796,7 +791,7 @@ python -m pytest tests/ -v
 | recall | `memory/test_recall.py` | 23 | 扫描/清单/选择/注入 |
 | prefetch | `memory/test_prefetch.py` | 15 | 门控/全通过/句柄 |
 | playbook | `skills/test_playbook.py` | 21 | frontmatter/发现/缓存/模板/描述 |
-| **总计** | **60 个文件** | **870** | **全部 7 个模块的每个公开函数和关键边界条件** |
+| **总计** | **68 个测试文件** | **870** | **全部 7 个模块的每个公开函数和关键边界条件** |
 
 ### 测试设计原则
 
@@ -896,9 +891,9 @@ FORGECC_PERMISSION_MODE=danger
 
 记忆文件存储在 `~/.forgecc/projects/{hash}/memory/` 目录下，可直接查看 `.md` 文件，或在 REPL 中让 Agent 执行 `memory_list` 工具。
 
-### Q: 为什么只有 2 个依赖？
+### Q: 为什么仍然保持轻量依赖？
 
-设计原则是**最小依赖**。`openai` 提供 LLM 调用能力，`rich` 提供彩色终端输出。其余全部用 Python 标准库实现（包括 frontmatter 解析、shell 安全、.env 加载、会话持久化等）。
+设计原则是**少而成熟**。`openai` 提供 LLM 调用能力，`rich` 提供彩色终端输出，`jsonschema` 负责标准 JSON Schema 校验，`python-dotenv` 负责 `.env` 解析。其余仍尽量使用 Python 标准库实现。
 
 ---
 

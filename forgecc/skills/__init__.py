@@ -9,7 +9,7 @@ from .playbook import (
     invalidate_cache,
     describe_for_directive,
 )
-from .frontmatter import Frontmatter, parse_frontmatter
+from ..frontmatter import Frontmatter, parse_frontmatter
 
 __all__ = [
     "Playbook", "discover", "find", "invoke", "resolve_template",

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from forgecc.skills.frontmatter import parse_frontmatter, Frontmatter
+from forgecc.frontmatter import parse_frontmatter, Frontmatter
 from forgecc.skills import playbook as pb_mod
 from forgecc.skills.playbook import (
     Playbook,
@@ -33,7 +33,7 @@ def reset_playbook_cache():
 
 
 # ═══════════════════════════════════════════════════════════════
-# 1. skills/frontmatter.py
+# 1. forgecc/frontmatter.py
 # ═══════════════════════════════════════════════════════════════
 
 class TestSkillFrontmatter:

@@ -29,6 +29,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import dotenv_values
+
 from .mcp import MCPServerConfig, parse_mcp_servers
 
 
@@ -140,32 +142,14 @@ def _resolve_provider(
 
 def _parse_dotenv(path: Path) -> dict[str, str]:
     """解析 .env 文件为字典。支持 KEY=VALUE、引号、注释。"""
-    result: dict[str, str] = {}
     if not path.is_file():
-        return result
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        key, _, value_text = line.partition("=")
-        key = key.strip()
-        key = re.sub(r"^export\s+", "", key)
-        value_text = value_text.strip()
-        # 去除两端引号
-        if value_text[:1] in ('"', "'"):
-            quote = value_text[0]
-            closing = value_text.find(quote, 1)
-            if closing >= 0:
-                value_text = value_text[1:closing]
-        else:
-            value_text = re.split(r"\s+#", value_text, maxsplit=1)[0].rstrip()
-            if len(value_text) >= 2 and value_text[0] == value_text[-1] and value_text[0] in ('"', "'"):
-                value_text = value_text[1:-1]
-        if key:
-            result[key] = value_text
-    return result
+        return {}
+    parsed = dotenv_values(path)
+    return {
+        str(key): value
+        for key, value in parsed.items()
+        if key and isinstance(value, str)
+    }
 
 
 def _load_env_cascade() -> dict[str, str]:

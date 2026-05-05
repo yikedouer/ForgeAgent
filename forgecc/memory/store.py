@@ -20,7 +20,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .frontmatter import parse_frontmatter, format_frontmatter
+from ..frontmatter import parse_frontmatter, format_frontmatter
 
 # ── 常量 ───────────────────────────────────────────────
 
