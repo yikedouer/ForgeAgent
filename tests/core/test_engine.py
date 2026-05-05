@@ -369,14 +369,14 @@ class TestPlanMode:
         mode = eng.toggle_plan_mode()
         assert mode == "plan"
         assert eng.enforcer.mode == PermissionMode.PLAN
-        assert eng._plan_file_path is not None
+        assert eng._plan.plan_file_path is not None
 
     def test_toggle_exit(self, engine_env):
         eng, _ = engine_env
         eng.toggle_plan_mode()  # enter
         mode = eng.toggle_plan_mode()  # exit
         assert mode != "plan"
-        assert eng._plan_file_path is None
+        assert eng._plan.plan_file_path is None
 
     def test_execute_enter_plan_mode(self, engine_env):
         eng, _ = engine_env
@@ -786,7 +786,7 @@ class TestConversationReset:
         eng._already_surfaced.add("memory.md")
         eng._session_memory_bytes = 789
         eng._pending_prefetch = object()
-        eng._context_cleared = True
+        eng._plan.context_cleared = True
 
         eng.clear_conversation()
 
@@ -799,7 +799,7 @@ class TestConversationReset:
         assert eng._already_surfaced == set()
         assert eng._session_memory_bytes == 0
         assert eng._pending_prefetch is None
-        assert eng._context_cleared is False
+        assert eng._plan.context_cleared is False
 
 
 class TestModelSwitching:

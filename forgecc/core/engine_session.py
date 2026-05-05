@@ -54,39 +54,7 @@ class RestoredCheckpoint:
 
 
 class EnginePlanApiMixin:
-    """Compatibility properties/methods delegating to PlanModeController."""
-
-    @property
-    def _pre_plan_mode(self) -> str | None:
-        return self._plan.pre_plan_mode
-
-    @_pre_plan_mode.setter
-    def _pre_plan_mode(self, value: str | None) -> None:
-        self._plan.pre_plan_mode = value
-
-    @property
-    def _plan_file_path(self) -> str | None:
-        return self._plan.plan_file_path
-
-    @_plan_file_path.setter
-    def _plan_file_path(self, value: str | None) -> None:
-        self._plan.plan_file_path = value
-
-    @property
-    def _plan_approval_fn(self) -> PlanApprovalFn | None:
-        return self._plan.approval_fn
-
-    @_plan_approval_fn.setter
-    def _plan_approval_fn(self, value: PlanApprovalFn | None) -> None:
-        self._plan.approval_fn = value
-
-    @property
-    def _context_cleared(self) -> bool:
-        return self._plan.context_cleared
-
-    @_context_cleared.setter
-    def _context_cleared(self, value: bool) -> None:
-        self._plan.context_cleared = value
+    """Public plan-mode methods exposed on Engine."""
 
     def set_plan_approval_fn(self, fn: PlanApprovalFn) -> None:
         """Inject the interactive plan approval callback."""
@@ -96,7 +64,7 @@ class EnginePlanApiMixin:
         """Toggle plan mode and return the active permission mode name."""
         mode = self._plan.toggle()
         if mode == "plan":
-            self._log.info("进入计划模式  plan_file=%s", self._plan_file_path)
+            self._log.info("进入计划模式  plan_file=%s", self._plan.plan_file_path)
         else:
             self._log.info("退出计划模式 → %s", mode)
         return mode
@@ -323,7 +291,7 @@ def reset_conversation_state(
     state._already_surfaced.clear()
     state._session_memory_bytes = 0
     state._pending_prefetch = None
-    state._context_cleared = False
+    state._plan.context_cleared = False
     reset_persisted_tracking()
 
 

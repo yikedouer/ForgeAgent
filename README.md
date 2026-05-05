@@ -283,7 +283,7 @@ ForgeCC/
 │   │   ├── engine_loop.py    (293)  #   Agent 主循环、prompt 构建、LLM 恢复、用量统计
 │   │   ├── engine_tools.py   (156)  #   工具调用准备、计划工具、执行日志、结果回填
 │   │   ├── engine_agents.py  (402)  #   子 Agent runtime、运行记录、Team 并行与入口 API
-│   │   ├── engine_session.py (362)  #   Engine 初始化、记忆注入、压缩、checkpoint、状态 API
+│   │   ├── engine_session.py (330)  #   Engine 初始化、记忆注入、压缩、checkpoint、状态 API
 │   │   ├── providers.py      (289)  #   LLM 适配层（OpenAI / AzureOpenAI + 流式）
 │   │   ├── provider_errors.py (40)  #   Provider 错误分类 + 重试判定
 │   │   ├── provider_types.py  (50)  #   Completion / Invocation 响应类型
@@ -722,7 +722,7 @@ toolkit.run_one(call_id, name, args)
 | 25 | `core/engine_loop.py` | 293 | Agent 主循环——单轮输入准备、prompt/schema、LLM 恢复、token 统计 |
 | 26 | `core/engine_tools.py` | 156 | 工具执行链——工具调用准备、计划工具结果、日志、持久化、transcript 回填 |
 | 27 | `core/engine_agents.py` | 402 | 子 Agent runtime——运行记录、单 Agent 执行、Team 并行、入口 API |
-| 28 | `core/engine_session.py` | 362 | 会话层——初始化、记忆注入、手动压缩、checkpoint、状态重置、计划/模型 API |
+| 28 | `core/engine_session.py` | 330 | 会话层——初始化、记忆注入、手动压缩、checkpoint、状态重置、计划/模型 API |
 | 29 | `interface/one_shot.py` | 54 | CLI 单次执行——text/JSON 输出、token 用量、Engine 资源关闭 |
 | 30 | `interface/repl.py` | 235 | CLI 交互壳层——输入分派、Engine 生命周期、权限确认回调 |
 | 31 | `interface/repl_commands.py` | 256 | REPL 命令集——12 个命令 + Skill 调用 + 计划模式命令 |

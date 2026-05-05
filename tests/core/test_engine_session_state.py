@@ -16,7 +16,7 @@ def test_reset_conversation_state_clears_transcript_and_runtime_fields():
         _already_surfaced={"memory.md"},
         _session_memory_bytes=512,
         _pending_prefetch=object(),
-        _context_cleared=True,
+        _plan=SimpleNamespace(context_cleared=True),
     )
     reset_calls = []
 
@@ -34,5 +34,5 @@ def test_reset_conversation_state_clears_transcript_and_runtime_fields():
     assert state._already_surfaced == set()
     assert state._session_memory_bytes == 0
     assert state._pending_prefetch is None
-    assert state._context_cleared is False
+    assert state._plan.context_cleared is False
     assert reset_calls == ["reset"]

@@ -131,7 +131,7 @@ class ForgeReplCommandMixin:
         if new_mode == "plan":
             self._console.print(
                 f"  [bold cyan]Entered plan mode (read-only).[/bold cyan]\n"
-                f"  Plan file: {self.engine._plan_file_path}\n"
+                f"  Plan file: {self.engine._plan.plan_file_path}\n"
                 f"  [dim]Use read tools to explore, then describe your task. "
                 f"Agent will write a plan for your approval.[/dim]"
             )

@@ -17,7 +17,7 @@ def test_prepare_round_inputs_compacts_builds_messages_injects_memory_and_select
         _last_input_tokens=42,
         _last_api_call_time=12.3,
         _custom_system_prompt="custom",
-        _plan_file_path="/tmp/plan.md",
+        _plan=SimpleNamespace(plan_file_path="/tmp/plan.md"),
         _custom_tool_names={"read_file"},
     )
     calls = {}
@@ -93,7 +93,7 @@ def test_prepare_round_inputs_keeps_existing_collapse_when_compaction_has_no_new
         _last_input_tokens=0,
         _last_api_call_time=None,
         _custom_system_prompt=None,
-        _plan_file_path=None,
+        _plan=SimpleNamespace(plan_file_path=None),
         _custom_tool_names=None,
     )
 

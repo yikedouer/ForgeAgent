@@ -122,7 +122,7 @@ def prepare_round_inputs(
     directive = directive_builder(
         settings=state.settings,
         custom_system_prompt=state._custom_system_prompt,
-        plan_file_path=state._plan_file_path,
+        plan_file_path=state._plan.plan_file_path,
         plan_prompt_builder=plan_prompt_builder,
     )
     wire_messages = wire_builder(
@@ -275,7 +275,7 @@ def run_agent_loop(
             append_message=append_message,
         )
 
-        if state.enforcer.mode == PermissionMode.PLAN and state._plan_file_path:
+        if state.enforcer.mode == PermissionMode.PLAN and state._plan.plan_file_path:
             normal_calls = state._filter_plan_mode_calls(normal_calls)
 
         execute_normal_tool_calls(

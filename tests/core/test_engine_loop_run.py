@@ -31,7 +31,7 @@ def test_run_agent_loop_returns_text_and_autosaves(monkeypatch):
         _already_surfaced=set(),
         _session_memory_bytes=0,
         enforcer=SimpleNamespace(mode=PermissionMode.DANGER),
-        _plan_file_path=None,
+        _plan=SimpleNamespace(plan_file_path=None),
         _execute_plan_tool=lambda name: f"plan:{name}",
         _filter_plan_mode_calls=lambda calls: calls,
     )
