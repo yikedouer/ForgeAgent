@@ -6,12 +6,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
-SKIP_DIRS = {
-    ".git", "__pycache__", "node_modules", ".venv", "venv",
-    ".tox", ".mypy_cache", ".pytest_cache", "dist", "build",
-    ".eggs", "*.egg-info", ".hatch",
-}
+from ..filewalk import walk_files
 
 
 @dataclass
@@ -41,23 +36,18 @@ def count_workspace_lines(workspace: str | os.PathLike[str]) -> WorkspaceStats:
     root_path = Path(workspace)
     stats = WorkspaceStats(workspace=root_path)
 
-    for root, dirs, files in os.walk(root_path):
-        dirs[:] = [
-            d for d in dirs
-            if d not in SKIP_DIRS and not d.endswith(".egg-info")
-        ]
-        for fname in files:
-            ext = os.path.splitext(fname)[1] or fname
-            fpath = os.path.join(root, fname)
-            try:
-                with open(fpath, "r", encoding="utf-8", errors="ignore") as handle:
-                    lines = sum(1 for _ in handle)
-            except (OSError, UnicodeDecodeError):
-                continue
-            entry = stats.by_extension.setdefault(ext, ExtensionStats(ext))
-            entry.lines += lines
-            entry.files += 1
-            stats.total_lines += lines
-            stats.total_files += 1
+    for _rel, fpath in walk_files(root_path):
+        fname = os.path.basename(fpath)
+        ext = os.path.splitext(fname)[1] or fname
+        try:
+            with open(fpath, "r", encoding="utf-8", errors="ignore") as handle:
+                lines = sum(1 for _ in handle)
+        except (OSError, UnicodeDecodeError):
+            continue
+        entry = stats.by_extension.setdefault(ext, ExtensionStats(ext))
+        entry.lines += lines
+        entry.files += 1
+        stats.total_lines += lines
+        stats.total_files += 1
 
     return stats

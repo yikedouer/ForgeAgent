@@ -276,6 +276,7 @@ ForgeCC/
 │   ├── toolkit_mcp.py         (73)  #   MCP 远端工具桥接 spec 构建
 │   ├── toolkit_schema.py     (235)  #   jsonschema 驱动的工具参数校验 + 错误消息适配
 │   ├── frontmatter.py         (58)  #   统一 frontmatter 解析与格式化
+│   ├── filewalk.py            (42)  #   统一文件遍历、排序和生成目录过滤
 │   │
 │   ├── core/                        # ── 引擎内核 ──
 │   │   ├── engine.py         (224)  #   Agent 核心门面 + public API
@@ -314,7 +315,7 @@ ForgeCC/
 │   │   ├── reader.py          (97)  #   read_file — 带行号文件读取
 │   │   ├── writer.py          (78)  #   write_file — 创建 / 覆写文件
 │   │   ├── editor.py          (96)  #   edit_file — 唯一性约束的搜索替换
-│   │   ├── finder.py         (148)  #   glob_search + grep_search
+│   │   ├── finder.py         (131)  #   glob_search + grep_search
 │   │   ├── shell.py          (291)  #   shell — 两阶段安全护栏
 │   │   ├── memory.py         (153)  #   memory_save / list / delete
 │   │   ├── skill.py           (73)  #   skill 调用桥接（inline / fork）
@@ -336,7 +337,7 @@ ForgeCC/
 │       ├── cli_startup.py     (74)  #   CLI 启动参数校验 + Settings 覆盖
 │       ├── export_command.py  (81)  #   离线 checkpoint export 命令
 │       ├── export.py          (30)  #   transcript Markdown + event JSONL 渲染
-│       ├── stats.py           (63)  #   工作区代码行数统计
+│       ├── stats.py           (53)  #   工作区代码行数统计
 │       ├── plan_approval.py   (50)  #   计划审批交互选项
 │       └── directive.py      (279)  #   系统提示词动态组装（7 大节对齐 claw-code）
 │

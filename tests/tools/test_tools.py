@@ -20,7 +20,6 @@ from forgecc.tools.editor import edit_file
 
 # ── finder ─────────────────────────────────────────────────────
 from forgecc.tools.finder import glob_search, grep_search
-import forgecc.tools.finder as finder_mod
 
 # ── shell ──────────────────────────────────────────────────────
 from forgecc.tools.shell import shell, _check_safety, _track_directory
@@ -519,11 +518,8 @@ class TestGlobSearch:
         assert len(lines) == 3
 
     def test_results_are_sorted(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(
-            finder_mod.os,
-            "walk",
-            lambda root: iter([(str(tmp_path), [], ["b.py", "a.py"])]),
-        )
+        (tmp_path / "b.py").touch()
+        (tmp_path / "a.py").touch()
 
         result = glob_search("*.py", root=str(tmp_path))
 
