@@ -27,7 +27,7 @@ tests/
 │   ├── test_runtime.py   # runtime 事件记录测试
 │   ├── test_engine_loop_*.py # Engine loop/prompt/LLM/usage 测试
 │   ├── test_engine_tools_*.py # 工具调用、计划工具、日志、结果回填测试
-│   ├── test_engine_agents_*.py # 子 Agent runtime、记录、执行、team 测试
+│   ├── test_subagent_runtime_*.py # 子 Agent runtime、记录、执行、team 测试
 │   ├── test_engine_session_*.py # checkpoint、压缩、记忆、状态测试
 │   ├── test_subagent_discovery.py # 自定义 Agent 发现测试
 │   ├── test_subagent_tools.py # 子 Agent 工具集解析测试

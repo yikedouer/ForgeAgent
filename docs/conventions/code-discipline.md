@@ -64,7 +64,7 @@ interface/ → core/ → toolkit.py ← instruments/
 ## 文件组织
 
 - 单文件行数是软约束，不用为压行数拆出 20-40 行的碎模块；超过约 350 行时需要有清晰职责边界
-- 当前 Engine 以职责聚合为准：`engine.py` 224 行、`engine_loop.py` 293 行、`engine_tools.py` 156 行、`engine_agents.py` 402 行、`engine_session.py` 330 行
+- 当前 Engine 以职责聚合为准：`engine.py` 224 行、`engine_loop.py` 293 行、`engine_tools.py` 156 行、`subagent_runtime.py` 402 行、`engine_session.py` 330 行
 - 相关功能放同一目录（如 memory/ 下的 store/recall/prefetch/frontmatter）
 - `__init__.py` 只做导出，不放逻辑
 

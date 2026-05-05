@@ -1,4 +1,4 @@
-"""Engine sub-agent runtime, execution records, team execution, and API entries."""
+"""Sub-agent runtime, execution records, team execution, and API entries."""
 
 from __future__ import annotations
 
@@ -61,23 +61,23 @@ def build_sub_agent_runtime(
     provider_factory: ProviderFactory,
     max_rounds: int = 30,
 ) -> SubAgentRuntime:
-    use_model = model or parent_settings.model
-    sub_settings = parent_settings.replace(max_rounds=max_rounds)
-    sub_provider = parent_provider
+    selected_model = model or parent_settings.model
+    child_settings = parent_settings.replace(max_rounds=max_rounds)
+    child_provider = parent_provider
     uses_parent_provider = True
 
     if model and model != parent_settings.model:
-        sub_settings = sub_settings.for_model(model)
-        sub_provider = provider_factory(sub_settings)
+        child_settings = child_settings.for_model(model)
+        child_provider = provider_factory(child_settings)
         uses_parent_provider = False
 
     if parent_permission_mode == PermissionMode.PLAN:
-        sub_settings = sub_settings.replace(permission_mode="plan")
+        child_settings = child_settings.replace(permission_mode="plan")
 
     return SubAgentRuntime(
-        settings=sub_settings,
-        provider=sub_provider,
-        model=use_model,
+        settings=child_settings,
+        provider=child_provider,
+        model=selected_model,
         uses_parent_provider=uses_parent_provider,
     )
 
@@ -161,7 +161,7 @@ def run_configured_sub_agent(
     warn: Callable[..., object] | None = None,
 ) -> SubAgentExecutionResult:
     """Build, run, and record one configured sub-agent."""
-    config = config_lookup(agent_type)
+    agent_config = config_lookup(agent_type)
     agent_id = agent_id_factory()
     runtime = build_sub_agent_runtime(
         parent_settings=parent_settings,
@@ -182,31 +182,31 @@ def run_configured_sub_agent(
         record_kwargs["warn"] = warn
     record = begin_record(**record_kwargs)
 
-    tool_names = resolve_sub_agent_tool_names(
+    resolved_tool_names = resolve_sub_agent_tool_names(
         available_tool_names,
-        config.get("tool_names"),
+        agent_config.get("tool_names"),
         allowed_tools,
     )
-    sub = engine_cls(
+    child_engine = engine_cls(
         settings=runtime.settings,
         provider=runtime.provider,
         is_sub_agent=True,
-        custom_system_prompt=config["system_prompt"],
-        custom_tool_names=tool_names,
+        custom_system_prompt=agent_config["system_prompt"],
+        custom_tool_names=resolved_tool_names,
     )
 
     result_text = ""
     error_msg = None
     try:
-        result_text = sub.run(prompt) or ""
+        result_text = child_engine.run(prompt) or ""
     except Exception as exc:
         error_msg = str(exc)
         result_text = f"(Sub-agent failed: {exc})"
 
     finish_kwargs: dict[str, Any] = {
         "result": result_text or "(no output)",
-        "tokens_in": sub._total_input_tokens,
-        "tokens_out": sub._total_output_tokens,
+        "tokens_in": child_engine._total_input_tokens,
+        "tokens_out": child_engine._total_output_tokens,
         "error": error_msg,
     }
     if warn is not None:
@@ -217,8 +217,8 @@ def run_configured_sub_agent(
         agent_id=agent_id,
         description=description,
         result=result_text,
-        tokens_in=sub._total_input_tokens,
-        tokens_out=sub._total_output_tokens,
+        tokens_in=child_engine._total_input_tokens,
+        tokens_out=child_engine._total_output_tokens,
         error=error_msg,
         model=runtime.model,
         uses_parent_provider=runtime.uses_parent_provider,
@@ -240,12 +240,12 @@ def collect_team_results(
     ordered: list[dict | None] = [None] * len(agent_specs)
     futures = completed_futures if completed_futures is not None else as_completed(future_map)
     for future in futures:
-        idx = future_map[future]
+        spec_index = future_map[future]
         try:
-            ordered[idx] = future.result()
+            ordered[spec_index] = future.result()
         except Exception as exc:
-            ordered[idx] = {
-                "description": spec_description(agent_specs[idx]),
+            ordered[spec_index] = {
+                "description": spec_description(agent_specs[spec_index]),
                 "result": f"(thread error: {exc})",
                 "tokens_in": 0,
                 "tokens_out": 0,

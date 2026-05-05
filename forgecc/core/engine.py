@@ -21,7 +21,7 @@ from .permissions import PermissionMode
 from ..context.collapse import CollapseState
 from ..memory.prefetch import MemoryPrefetch
 from .log import get_logger
-from .engine_agents import (
+from .subagent_runtime import (
     execute_sub_agent_entry,
     execute_sub_agents_parallel_entry,
 )

@@ -282,7 +282,7 @@ ForgeCC/
 │   │   ├── engine.py         (224)  #   Agent 核心门面 + public API
 │   │   ├── engine_loop.py    (293)  #   Agent 主循环、prompt 构建、LLM 恢复、用量统计
 │   │   ├── engine_tools.py   (156)  #   工具调用准备、计划工具、执行日志、结果回填
-│   │   ├── engine_agents.py  (402)  #   子 Agent runtime、运行记录、Team 并行与入口 API
+│   │   ├── subagent_runtime.py  (402)  #   子 Agent runtime、运行记录、Team 并行与入口 API
 │   │   ├── engine_session.py (330)  #   Engine 初始化、记忆注入、压缩、checkpoint、状态 API
 │   │   ├── providers.py      (368)  #   LLM 适配、响应类型、错误分类、流式调用
 │   │   ├── settings.py       (316)  #   Settings dataclass + 四层级联加载 + Provider 预设
@@ -513,7 +513,7 @@ engine.execute_sub_agents_parallel([
 
 ### `core/engine.py` — Engine 门面（224 行）
 
-这是核心编排入口，保留 `Engine` 公共 API 和依赖注入点；具体职责按运行时边界收拢到 4 个模块：`engine_loop.py`、`engine_tools.py`、`engine_agents.py`、`engine_session.py`。`Engine.run()` 的伪代码：
+这是核心编排入口，保留 `Engine` 公共 API 和依赖注入点；具体职责按运行时边界收拢到 4 个模块：`engine_loop.py`、`engine_tools.py`、`subagent_runtime.py`、`engine_session.py`。`Engine.run()` 的伪代码：
 
 ```python
 def run(self, user_input):
@@ -711,7 +711,7 @@ toolkit.run_one(call_id, name, args)
 | 23 | `interface/export_command.py` | 81 | 离线 checkpoint export 命令——Markdown/JSON/JSONL |
 | 24 | `core/engine_loop.py` | 293 | Agent 主循环——单轮输入准备、prompt/schema、LLM 恢复、token 统计 |
 | 26 | `core/engine_tools.py` | 156 | 工具执行链——工具调用准备、计划工具结果、日志、持久化、transcript 回填 |
-| 27 | `core/engine_agents.py` | 402 | 子 Agent runtime——运行记录、单 Agent 执行、Team 并行、入口 API |
+| 27 | `core/subagent_runtime.py` | 402 | 子 Agent runtime——运行记录、单 Agent 执行、Team 并行、入口 API |
 | 28 | `core/engine_session.py` | 330 | 会话层——初始化、记忆注入、手动压缩、checkpoint、状态重置、计划/模型 API |
 | 29 | `interface/one_shot.py` | 54 | CLI 单次执行——text/JSON 输出、token 用量、Engine 资源关闭 |
 | 30 | `interface/repl.py` | 235 | CLI 交互壳层——输入分派、Engine 生命周期、权限确认回调 |
@@ -768,7 +768,7 @@ python -m pytest tests/ -v
 | runtime | `core/test_runtime.py` | 3 | transcript 追加、主 Agent JSONL 事件、子 Agent 事件跳过、失败降级 |
 | engine loop | `core/test_engine_loop_*.py` | 11 | Agent loop、prompt/schema、单轮准备、LLM 恢复、token 统计 |
 | engine tools | `core/test_engine_tools_*.py` | 13 | 工具调用元组、计划工具、执行日志、持久化、tool transcript 消息 |
-| engine agents | `core/test_engine_agents_*.py` | 14 | 子 Agent runtime、运行记录、单 Agent 执行、Team 并行和 token 汇总 |
+| subagent runtime | `core/test_subagent_runtime_*.py` | 14 | 子 Agent runtime、运行记录、单 Agent 执行、Team 并行和 token 汇总 |
 | engine session | `core/test_engine_session_*.py` | 10 | checkpoint、手动压缩、记忆预取/注入、会话状态重置 |
 | subagent | `core/test_subagent.py` | 23 | 内置/自定义 Agent 配置、描述生成、Agent store |
 | subagent discovery | `core/test_subagent_discovery.py` | 3 | frontmatter、allowed-tools、多层目录覆盖 |

@@ -149,22 +149,22 @@ def _parse_dotenv(path: Path) -> dict[str, str]:
             continue
         if "=" not in line:
             continue
-        key, _, val = line.partition("=")
+        key, _, value_text = line.partition("=")
         key = key.strip()
         key = re.sub(r"^export\s+", "", key)
-        val = val.strip()
+        value_text = value_text.strip()
         # 去除两端引号
-        if val[:1] in ('"', "'"):
-            quote = val[0]
-            closing = val.find(quote, 1)
+        if value_text[:1] in ('"', "'"):
+            quote = value_text[0]
+            closing = value_text.find(quote, 1)
             if closing >= 0:
-                val = val[1:closing]
+                value_text = value_text[1:closing]
         else:
-            val = re.split(r"\s+#", val, maxsplit=1)[0].rstrip()
-            if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
-                val = val[1:-1]
+            value_text = re.split(r"\s+#", value_text, maxsplit=1)[0].rstrip()
+            if len(value_text) >= 2 and value_text[0] == value_text[-1] and value_text[0] in ('"', "'"):
+                value_text = value_text[1:-1]
         if key:
-            result[key] = val
+            result[key] = value_text
     return result
 
 
@@ -205,19 +205,19 @@ def _load_env_cascade() -> dict[str, str]:
 
     # 将 .env 文件中读到的值注入 os.environ（不覆盖已有的真实环境变量）
     # 这样 Provider 等模块可以直接通过 os.environ 读取 empId 等配置
-    for key, val in merged.items():
+    for key, value_text in merged.items():
         if key not in os.environ:
-            os.environ[key] = val
+            os.environ[key] = value_text
 
     return merged
 
 
 def _positive_int_env(env: dict[str, str], name: str, default: int) -> int:
-    raw = env.get(name, str(default))
-    if isinstance(raw, bool):
+    raw_value = env.get(name, str(default))
+    if isinstance(raw_value, bool):
         return default
     try:
-        value = int(raw)
+        value = int(raw_value)
     except (TypeError, ValueError):
         return default
     return value if value > 0 else default
@@ -234,16 +234,16 @@ def _workspace_env(env: dict[str, str]) -> str:
 
 
 def _hook_paths_env(env: dict[str, str]) -> tuple[str, ...]:
-    raw = _str_env(env, "FORGECC_HOOKS")
-    parts = re.split(rf"[{re.escape(os.pathsep)},]", raw)
+    raw_value = _str_env(env, "FORGECC_HOOKS")
+    parts = re.split(rf"[{re.escape(os.pathsep)},]", raw_value)
     return tuple(part.strip() for part in parts if part.strip())
 
 
 def _bool_env(env: dict[str, str], name: str, default: bool = False) -> bool:
-    raw = _str_env(env, name).strip().lower()
-    if not raw:
+    raw_value = _str_env(env, name).strip().lower()
+    if not raw_value:
         return default
-    return raw in {"1", "true", "yes", "on"}
+    return raw_value in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)

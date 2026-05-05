@@ -243,7 +243,7 @@ class Provider:
         """轻量级非流式调用，用于辅助查询（记忆召回等）。"""
         log.debug("side_query: system=%d字  user=%d字  max_tokens=%d",
                   len(system), len(user_message), max_tokens)
-        resp = self._client.chat.completions.create(
+        response = self._client.chat.completions.create(
             model=self._model,
             messages=[
                 {"role": "system", "content": system},
@@ -252,11 +252,11 @@ class Provider:
             max_tokens=max_tokens,
             stream=False,
         )
-        choices = _field(resp, "choices", None)
+        choices = _field(response, "choices", None)
         if not choices:
             # 公司内部代理的错误格式：choices=None + message 字段包含错误信息
-            err_msg = _field(resp, "message", "API returned no choices")
-            raise ProviderError(str(err_msg)[:500])
+            error_message = _field(response, "message", "API returned no choices")
+            raise ProviderError(str(error_message)[:500])
         message = _field(choices[0], "message", None)
         return _field(message, "content", "") or ""
 
@@ -282,15 +282,15 @@ class Provider:
         stream = self._client.chat.completions.create(**kwargs)
 
         text_parts: list[str] = []
-        call_map: dict[int, dict] = {}  # index -> {id, name, args_buf}
-        u_in = u_out = 0
+        tool_call_parts: dict[int, dict] = {}
+        usage_in = usage_out = 0
 
         for chunk in stream:
             # 最后一个 chunk（choices 为空）仅携带 usage 统计
             usage = _field(chunk, "usage", None)
             if usage:
-                u_in = _usage_token_count(_field(usage, "prompt_tokens", 0))
-                u_out = _usage_token_count(_field(usage, "completion_tokens", 0))
+                usage_in = _usage_token_count(_field(usage, "prompt_tokens", 0))
+                usage_out = _usage_token_count(_field(usage, "completion_tokens", 0))
 
             choices = _field(chunk, "choices", None)
             delta = _field(choices[0], "delta", None) if choices else None
@@ -310,11 +310,12 @@ class Provider:
             # 累积工具调用 delta
             tool_calls = _field(delta, "tool_calls", None)
             if isinstance(tool_calls, (list, tuple)):
-                for tc_delta in tool_calls:
-                    idx = _field(tc_delta, "index", 0)
-                    idx = _tool_call_index(idx)
-                    call_id = _string_delta(_field(tc_delta, "id", None))
-                    function = _field(tc_delta, "function", None)
+                for tool_call_delta in tool_calls:
+                    call_index = _tool_call_index(
+                        _field(tool_call_delta, "index", 0)
+                    )
+                    call_id = _string_delta(_field(tool_call_delta, "id", None))
+                    function = _field(tool_call_delta, "function", None)
                     name = None
                     arguments = None
                     if function:
@@ -323,24 +324,24 @@ class Provider:
                     has_arguments = arguments is not None and arguments != ""
                     if not (call_id or name or has_arguments):
                         continue
-                    if idx not in call_map:
-                        call_map[idx] = {"id": "", "name": "", "args_buf": ""}
+                    if call_index not in tool_call_parts:
+                        tool_call_parts[call_index] = {"id": "", "name": "", "args_buf": ""}
                     if call_id:
-                        call_map[idx]["id"] = call_id
+                        tool_call_parts[call_index]["id"] = call_id
                     if name:
-                        call_map[idx]["name"] = name
+                        tool_call_parts[call_index]["name"] = name
                     if has_arguments:
                         if not isinstance(arguments, str):
                             try:
                                 arguments = json.dumps(arguments)
                             except (TypeError, ValueError):
                                 arguments = str(arguments)
-                        call_map[idx]["args_buf"] += arguments
+                        tool_call_parts[call_index]["args_buf"] += arguments
 
         # 解析累积的工具调用
         invocations = []
-        for idx in sorted(call_map):
-            entry = call_map[idx]
+        for call_index in sorted(tool_call_parts):
+            entry = tool_call_parts[call_index]
             if not entry["name"]:
                 continue
             try:
@@ -350,19 +351,19 @@ class Provider:
             except json.JSONDecodeError:
                 args = {"_raw": entry["args_buf"]}
             invocations.append(Invocation(
-                call_id=entry["id"] or f"call_{idx}",
+                call_id=entry["id"] or f"call_{call_index}",
                 fn_name=entry["name"],
                 fn_args=args,
             ))
 
-        self._total_in += u_in
-        self._total_out += u_out
+        self._total_in += usage_in
+        self._total_out += usage_out
         log.debug("流式响应完成: in=%d out=%d  文本=%d字  工具=%d个",
-                  u_in, u_out, len("".join(text_parts)), len(call_map))
+                  usage_in, usage_out, len("".join(text_parts)), len(tool_call_parts))
 
         return Completion(
             text="".join(text_parts),
             invocations=invocations,
-            usage_in=u_in,
-            usage_out=u_out,
+            usage_in=usage_in,
+            usage_out=usage_out,
         )
