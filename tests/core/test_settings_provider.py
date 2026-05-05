@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from forgecc.core.settings_provider import _infer_provider, _resolve_provider
+from forgecc.core.settings import _infer_provider, _resolve_provider
 
 
 def test_infer_provider_defaults_unknown_models_to_qwen() -> None:

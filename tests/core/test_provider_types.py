@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from forgecc.core.provider_types import Completion, Invocation
+from forgecc.core.providers import Completion, Invocation
 
 
 def test_completion_raw_assistant_msg_with_text_only() -> None:

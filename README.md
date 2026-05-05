@@ -284,11 +284,8 @@ ForgeCC/
 │   │   ├── engine_tools.py   (156)  #   工具调用准备、计划工具、执行日志、结果回填
 │   │   ├── engine_agents.py  (402)  #   子 Agent runtime、运行记录、Team 并行与入口 API
 │   │   ├── engine_session.py (330)  #   Engine 初始化、记忆注入、压缩、checkpoint、状态 API
-│   │   ├── providers.py      (289)  #   LLM 适配层（OpenAI / AzureOpenAI + 流式）
-│   │   ├── provider_errors.py (40)  #   Provider 错误分类 + 重试判定
-│   │   ├── provider_types.py  (50)  #   Completion / Invocation 响应类型
-│   │   ├── settings.py       (213)  #   Settings dataclass + 四层级联加载
-│   │   ├── settings_provider.py (107) # Provider/Model 预设解析
+│   │   ├── providers.py      (368)  #   LLM 适配、响应类型、错误分类、流式调用
+│   │   ├── settings.py       (316)  #   Settings dataclass + 四层级联加载 + Provider 预设
 │   │   ├── mcp/                     #   MCP server 配置解析 + JSON-RPC/stdio 客户端
 │   │   │   ├── config.py      (86)  #     server 配置 dataclass + Claude 风格 JSON 解析
 │   │   │   ├── protocol.py   (133)  #     JSON-RPC client、协议类型、响应校验
@@ -481,7 +478,7 @@ engine.execute_sub_agents_parallel([
 
 ## 模块深度拆解
 
-### `core/settings.py` — 配置加载（213 行）
+### `core/settings.py` — 配置加载（316 行）
 
 - `_parse_dotenv(path)` — 解析 `.env` 文件，支持引号值、注释行、空行
 - `_load_env_cascade()` — 级联加载：用户级 → 项目级 → 真实环境变量，加载后注入 `os.environ`
@@ -506,13 +503,13 @@ engine.execute_sub_agents_parallel([
 - `PermissionEnforcer.check(risk_level, path, args)` — 核心判定逻辑
 - `_check_workspace_boundary(path)` — 路径必须在 workspace 内，`..` 穿越被拒绝
 
-### `core/providers.py` — LLM 适配（289 行）
+### `core/providers.py` — LLM 适配（368 行）
 
 - `Provider.__init__(settings)` — 根据 `client_type` 创建 OpenAI 或 AzureOpenAI 客户端
 - 公司内部代理（`iai.alibaba-inc.com`）自动注入 `empId` 请求头
 - `Provider.generate(messages, tool_schemas, on_token)` — 流式调用，返回 `Completion`
 - `Provider.side_query(messages)` — 非流式查询（用于记忆召回 / 上下文折叠）
-- `provider_types.Completion` — 包含 text、invocations、usage_in/out、raw_assistant_msg
+- `Completion` / `Invocation` — Provider 响应类型与 assistant 消息重建
 - 错误映射：401→AuthenticationError, 429→RateLimitedError, 上下文超限→ContextWindowError
 - 指数退避重试：可重试错误（429/502/503）最多重试 4 次
 
@@ -658,10 +655,9 @@ toolkit.run_one(call_id, name, args)
 
 | 步骤 | 文件 | 行数 | 学什么 |
 |------|------|------|--------|
-| 1 | `core/settings.py` | 213 | Settings dataclass、.env 解析、四层级联加载 + os.environ 注入 |
-| 2 | `core/settings_provider.py` | 107 | Provider/Model 分离、模型前缀推断、Azure/OpenAI endpoint 解析 |
-| 3 | `core/errors.py` | 74 | 异常继承链、retryable 属性、isinstance 链 |
-| 4 | `core/permissions.py` | 151 | 枚举 × 风险级别矩阵、工作区边界路径检查 |
+| 1 | `core/settings.py` | 316 | Settings dataclass、.env 解析、Provider/Model 预设、四层级联加载 + os.environ 注入 |
+| 2 | `core/errors.py` | 74 | 异常继承链、retryable 属性、isinstance 链 |
+| 3 | `core/permissions.py` | 151 | 枚举 × 风险级别矩阵、工作区边界路径检查 |
 
 > 学完这三个文件，你就理解了 Agent 的「安全底座」。
 
@@ -682,11 +678,9 @@ toolkit.run_one(call_id, name, args)
 
 | 步骤 | 文件 | 行数 | 学什么 |
 |------|------|------|--------|
-| 9 | `core/providers.py` | 289 | 流式调用、工具调用解析、指数退避重试、Azure/Gemini 支持 |
-| 10 | `core/provider_errors.py` | 40 | Provider 错误分类——上下文窗口、限流/连接重试判定 |
-| 11 | `core/provider_types.py` | 50 | Provider 响应类型——Completion、Invocation、assistant 消息重建 |
-| 11 | `interface/directive.py` | 279 | 系统提示词动态组装（7 大节对齐 claw-code + 记忆指导） |
-| 12 | `core/engine.py` | 224 | **核心门面**——Engine public API、生命周期入口、子 Agent public API |
+| 9 | `core/providers.py` | 368 | 流式调用、响应类型、错误分类、工具调用解析、指数退避重试、Azure/Gemini 支持 |
+| 10 | `interface/directive.py` | 279 | 系统提示词动态组装（7 大节对齐 claw-code + 记忆指导） |
+| 11 | `core/engine.py` | 224 | **核心门面**——Engine public API、生命周期入口、子 Agent public API |
 
 > 学完这三个文件，你就理解了 Agent 循环的完整编排逻辑。
 

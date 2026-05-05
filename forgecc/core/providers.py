@@ -12,16 +12,16 @@ from __future__ import annotations
 import json
 import os
 import time
+from dataclasses import dataclass, field
 from typing import Callable
 
 from openai import (
+    APIConnectionError, APIError,
     OpenAI, AzureOpenAI,
     RateLimitError, AuthenticationError,
 )
 
 from .settings import Settings
-from .provider_errors import _is_context_window_error, _should_retry
-from .provider_types import Completion, Invocation
 from .errors import (
     ProviderError, ContextWindowError,
     AuthenticationError as ForgeAuthError,
@@ -30,6 +30,85 @@ from .errors import (
 from .log import get_logger
 
 log = get_logger(__name__)
+
+
+_RETRYABLE_CODES = {429, 502, 503}
+_CONTEXT_WINDOW_CODES = {400, 413}
+
+
+def _json_argument_string(value) -> str:
+    if not isinstance(value, dict):
+        return json.dumps({"_raw": str(value)})
+    try:
+        return json.dumps(value, allow_nan=False)
+    except (TypeError, ValueError):
+        return json.dumps({"_raw": str(value)})
+
+
+@dataclass
+class Invocation:
+    """A single tool invocation requested by the model."""
+    call_id: str
+    fn_name: str
+    fn_args: dict
+
+
+@dataclass
+class Completion:
+    """Parsed model response: text, tool calls, or both."""
+    text: str = ""
+    invocations: list[Invocation] = field(default_factory=list)
+    usage_in: int = 0
+    usage_out: int = 0
+
+    @property
+    def raw_assistant_msg(self) -> dict:
+        """Rebuild an OpenAI-format assistant message."""
+        msg: dict = {"role": "assistant", "content": self.text or None}
+        if self.invocations:
+            msg["tool_calls"] = [
+                {
+                    "id": inv.call_id if isinstance(inv.call_id, str) and inv.call_id else f"call_{idx}",
+                    "type": "function",
+                    "function": {
+                        "name": inv.fn_name if isinstance(inv.fn_name, str) and inv.fn_name else "unknown_tool",
+                        "arguments": _json_argument_string(inv.fn_args),
+                    },
+                }
+                for idx, inv in enumerate(self.invocations)
+            ]
+        return msg
+
+
+def _is_context_window_error(exc: Exception) -> bool:
+    """Detect provider context-window failures across compatible APIs."""
+    msg = str(exc).lower()
+    indicators = (
+        "context length",
+        "context window",
+        "maximum context",
+        "token limit",
+        "too many tokens",
+        "reduce your prompt",
+        "max_tokens",
+        "input too long",
+    )
+    if any(ind in msg for ind in indicators):
+        return True
+    if isinstance(exc, APIError) and getattr(exc, "status_code", 0) in _CONTEXT_WINDOW_CODES:
+        if any(ind in msg for ind in indicators):
+            return True
+    return False
+
+
+def _should_retry(exc: Exception) -> bool:
+    if isinstance(exc, RateLimitError):
+        return True
+    if isinstance(exc, APIError) and getattr(exc, "status_code", 0) in _RETRYABLE_CODES:
+        return True
+    if isinstance(exc, APIConnectionError):
+        return True
+    return False
 
 
 def _field(value, name: str, default=None):
