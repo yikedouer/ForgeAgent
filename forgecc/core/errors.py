@@ -1,27 +1,27 @@
-"""Structured error hierarchy for ForgeCC.
+"""结构化错误层级。
 
-All ForgeCC-specific exceptions inherit from ForgeError so callers can
-catch the entire family with a single except clause when desired.
+所有 ForgeCC 异常均继承自 ForgeError，调用方可用单个 except 子句
+捕获整个异常族。
 
-Key error types:
-  ProviderError    — LLM API failures, subdivided by retryability
-  ContextWindowError — special case: context too large, auto-compact can help
-  ToolError        — instrument execution failures
-  PermissionDenied — permission enforcer blocked the operation
+主要错误类型：
+  ProviderError     — LLM API 失败，按可重试性细分
+  ContextWindowError — 上下文过大，可触发自动压缩
+  ToolError         — 工具执行失败
+  PermissionDenied  — 权限执行器拦截了操作
 """
 
 from __future__ import annotations
 
 
 class ForgeError(Exception):
-    """Base class for all ForgeCC errors."""
+    """所有 ForgeCC 错误的基类。"""
     pass
 
 
-# ── Provider errors ────────────────────────────────────────
+# ── Provider 错误 ──────────────────────────────────────────
 
 class ProviderError(ForgeError):
-    """LLM API call failed."""
+    """LLM API 调用失败。"""
 
     def __init__(self, message: str, *, retryable: bool = False, status_code: int = 0):
         super().__init__(message)
@@ -30,9 +30,9 @@ class ProviderError(ForgeError):
 
 
 class ContextWindowError(ProviderError):
-    """Context window exceeded — the conversation is too large.
+    """上下文窗口超出 — 对话太大。
 
-    The engine should catch this, trigger compaction, and retry.
+    Engine 应捕获此异常，触发压缩后重试。
     """
 
     def __init__(self, message: str = "Context window exceeded"):
@@ -40,33 +40,33 @@ class ContextWindowError(ProviderError):
 
 
 class AuthenticationError(ProviderError):
-    """Invalid or missing API credentials."""
+    """无效或缺失的 API 凭证。"""
 
     def __init__(self, message: str = "Authentication failed — check your API key"):
         super().__init__(message, retryable=False, status_code=401)
 
 
 class RateLimitedError(ProviderError):
-    """Rate limited by the provider — retryable with backoff."""
+    """被 Provider 限流 — 可退避重试。"""
 
     def __init__(self, message: str = "Rate limited — retrying"):
         super().__init__(message, retryable=True, status_code=429)
 
 
-# ── Tool errors ────────────────────────────────────────────
+# ── 工具错误 ────────────────────────────────────────────
 
 class ToolError(ForgeError):
-    """An instrument execution failed."""
+    """工具执行失败。"""
 
     def __init__(self, tool_name: str, message: str):
         super().__init__(f"[{tool_name}] {message}")
         self.tool_name = tool_name
 
 
-# ── Permission errors ──────────────────────────────────────
+# ── 权限错误 ────────────────────────────────────────────
 
 class PermissionDenied(ForgeError):
-    """The permission enforcer blocked the operation."""
+    """权限执行器拦截了操作。"""
 
     def __init__(self, tool_name: str, reason: str):
         super().__init__(f"Permission denied for '{tool_name}': {reason}")

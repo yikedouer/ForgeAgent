@@ -1,7 +1,7 @@
-"""Minimal YAML-like frontmatter parser.
+"""轻量类 YAML frontmatter 解析器。
 
-Parses `---` delimited key: value blocks at the top of Markdown files.
-No dependency on PyYAML — keeps the install footprint tiny.
+解析 Markdown 文件顶部以 `---` 分隔的 key: value 块。
+无需依赖 PyYAML，保持安装体积最小化。
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ class Frontmatter:
 
 
 def parse_frontmatter(raw: str) -> Frontmatter:
-    """Parse a Markdown file with optional YAML frontmatter."""
+    """解析包含可选 YAML frontmatter 的 Markdown 文件。"""
     lines = raw.split("\n")
     if not lines or lines[0].strip() != "---":
         return Frontmatter(meta={}, body=raw)
@@ -39,5 +39,8 @@ def parse_frontmatter(raw: str) -> Frontmatter:
         if key:
             meta[key] = val
 
-    body = "\n".join(lines[closing + 1:]).strip()
+    body_start = closing + 1
+    if body_start < len(lines) and lines[body_start] == "":
+        body_start += 1
+    body = "\n".join(lines[body_start:])
     return Frontmatter(meta=meta, body=body)

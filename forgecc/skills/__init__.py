@@ -1,4 +1,4 @@
-"""Skill / playbook system — discovery, parsing, and execution."""
+"""技能 / Playbook 系统 — 发现、解析与执行。"""
 
 from .playbook import (
     Playbook,

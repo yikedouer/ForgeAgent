@@ -1,20 +1,24 @@
-"""Search-and-replace file editor with diff output.
+"""搜索替换文件编辑器，输出 diff。
 
-The editing model is deliberately constrained:
-  * The search string must appear exactly once in the file.
-  * If it appears zero times → mismatch error.
-  * If it appears more than once → ambiguity error.
+编辑模型刻意受限：
+  * 搜索字符串必须在文件中恰好出现一次。
+  * 出现零次 → 不匹配错误。
+  * 出现多次 → 歧义错误。
 
-This uniqueness constraint prevents the model from accidentally
-modifying the wrong location — a critical safety property.
+这种唯一性约束防止模型意外修改错误位置——
+这是一个关键的安全属性。
 """
 
 from __future__ import annotations
 
 import difflib
+import logging
 import os
 
 from ..toolkit import instrument
+from .paths import active_workspace_boundary_error, resolve_workspace_path
+
+log = logging.getLogger(__name__)
 
 
 def _unified_diff(before: str, after: str, path: str) -> str:
@@ -43,7 +47,21 @@ def _unified_diff(before: str, after: str, path: str) -> str:
     risk_level="write",
 )
 def edit_file(path: str, old_text: str, new_text: str) -> str:
-    path = os.path.expanduser(path)
+    if not isinstance(path, str) or not path.strip():
+        return "INVALID PATH: path must be non-empty."
+    path = path.strip()
+    path = resolve_workspace_path(path)
+    boundary_err = active_workspace_boundary_error(path)
+    if boundary_err:
+        return boundary_err
+    if not isinstance(old_text, str):
+        return "INVALID OLD_TEXT: old_text must be a string."
+    if not isinstance(new_text, str):
+        return "INVALID NEW_TEXT: new_text must be a string."
+    log.debug("edit_file: path=%s  old=%d字符  new=%d字符", path, len(old_text), len(new_text))
+
+    if old_text == "":
+        return "EMPTY old_text — provide the exact text to replace."
 
     if not os.path.isfile(path):
         return f"NOT FOUND: {path}"
@@ -55,7 +73,7 @@ def edit_file(path: str, old_text: str, new_text: str) -> str:
 
     occurrences = original.count(old_text)
     if occurrences == 0:
-        # try a whitespace-relaxed match as a fallback hint
+        # 尝试空白宽松匹配作为提示
         stripped_old = old_text.strip()
         if stripped_old and stripped_old in original:
             return (

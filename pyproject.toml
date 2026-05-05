@@ -24,5 +24,14 @@ dependencies = [
 [tool.hatch.build.targets.wheel]
 packages = ["forgecc"]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
 [project.scripts]
 forgecc = "forgecc.interface.repl:main"

@@ -1,13 +1,13 @@
-"""Playbook — skill discovery, parsing, and execution.
+"""Playbook — 技能发现、解析与执行。
 
-A "playbook" is a reusable prompt template stored as a Markdown file
-with YAML-style frontmatter. Playbooks live in well-known directories
-and are surfaced to the LLM as callable skills.
+"playbook" 是以 Markdown 文件存储的可复用提示词模板，
+带有 YAML 风格的 frontmatter。Playbook 存放在固定目录中，
+并作为可调用技能暴露给 LLM。
 
-Directory layout:
-    .forgecc/skills/<name>/SKILL.md   (project-level, higher priority)
-    ~/.forgecc/skills/<name>/SKILL.md  (user-level, lower priority)
-    .claude/skills/<name>/SKILL.md     (compatibility with Claude Code)
+目录布局:
+    .forgecc/skills/<name>/SKILL.md   (项目级，高优先级)
+    ~/.forgecc/skills/<name>/SKILL.md (用户级，低优先级)
+    .claude/skills/<name>/SKILL.md   (兼容 Claude Code)
 """
 
 from __future__ import annotations
@@ -21,24 +21,23 @@ from typing import Any
 from .frontmatter import parse_frontmatter
 
 
-# ── Playbook definition ─────────────────────────────────────
+# ── Playbook 定义 ─────────────────────────────────────
 
 @dataclass(frozen=True)
 class Playbook:
     name: str
     description: str
-    hint: str               # when-to-use guidance for the LLM
-    mode: str               # "inline" or "fork"
+    hint: str               # LLM 何时使用的提示
+    mode: str               # "inline" 或 "fork"
     user_invocable: bool
     allowed_tools: tuple[str, ...] | None
-    template: str           # raw prompt body with $ARGUMENTS placeholders
+    template: str           # 含 $ARGUMENTS 占位符的原始提示词正文
     origin: str             # "project" | "user" | "compat"
-    directory: str          # absolute path to skill directory
+    directory: str          # 技能目录的绝对路径
 
 
-# ── Discovery ───────────────────────────────────────────────
-# Scans multiple directories in priority order.  Later entries
-# overwrite earlier ones for the same name.
+# ── 发现 ───────────────────────────────────────────────
+# 按优先级扫描多个目录，同名技能由后扫描的覆盖。
 
 _cache: list[Playbook] | None = None
 
@@ -57,6 +56,17 @@ def _scan_dir(base: Path, origin: str, out: dict[str, Playbook]) -> None:
             out[pb.name] = pb
 
 
+def _tool_names(values: list[Any] | tuple[Any, ...]) -> tuple[str, ...]:
+    names: list[str] = []
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        name = value.strip().strip("\"'")
+        if name:
+            names.append(name)
+    return tuple(names)
+
+
 def _load_one(path: Path, origin: str, directory: str) -> Playbook | None:
     try:
         fm = parse_frontmatter(path.read_text(encoding="utf-8"))
@@ -66,17 +76,20 @@ def _load_one(path: Path, origin: str, directory: str) -> Playbook | None:
     meta = fm.meta
     name = meta.get("name") or path.parent.name
 
-    # parse allowed-tools
+    # 解析 allowed-tools
     allowed: tuple[str, ...] | None = None
     raw_tools = meta.get("allowed-tools", "")
     if raw_tools:
         if raw_tools.startswith("["):
             try:
-                allowed = tuple(json.loads(raw_tools))
+                parsed_tools = json.loads(raw_tools)
             except Exception:
-                allowed = tuple(s.strip() for s in raw_tools.strip("[]").split(",") if s.strip())
+                allowed = _tool_names(tuple(raw_tools.strip("[]").split(",")))
+            else:
+                if isinstance(parsed_tools, list):
+                    allowed = _tool_names(parsed_tools)
         else:
-            allowed = tuple(s.strip() for s in raw_tools.split(",") if s.strip())
+            allowed = _tool_names(tuple(raw_tools.split(",")))
 
     return Playbook(
         name=name,
@@ -92,20 +105,20 @@ def _load_one(path: Path, origin: str, directory: str) -> Playbook | None:
 
 
 def discover() -> list[Playbook]:
-    """Return all discovered playbooks, cached after first call."""
+    """返回所有已发现的 playbook，首次调用后缓存。"""
     global _cache
     if _cache is not None:
         return _cache
 
     collected: dict[str, Playbook] = {}
 
-    # user-level (lowest priority)
+    # 用户级（最低优先级）
     _scan_dir(Path.home() / ".forgecc" / "skills", "user", collected)
 
-    # compatibility: .claude/skills
+    # 兼容: .claude/skills
     _scan_dir(Path.cwd() / ".claude" / "skills", "compat", collected)
 
-    # project-level (highest priority)
+    # 项目级（最高优先级）
     _scan_dir(Path.cwd() / ".forgecc" / "skills", "project", collected)
 
     _cache = list(collected.values())
@@ -117,7 +130,7 @@ def invalidate_cache() -> None:
     _cache = None
 
 
-# ── Resolution ──────────────────────────────────────────────
+# ── 解析 ──────────────────────────────────────────────
 
 def find(name: str) -> Playbook | None:
     for pb in discover():
@@ -127,7 +140,7 @@ def find(name: str) -> Playbook | None:
 
 
 def resolve_template(pb: Playbook, arguments: str) -> str:
-    """Substitute $ARGUMENTS / ${ARGUMENTS} and ${SKILL_DIR}."""
+    """替换 $ARGUMENTS / ${ARGUMENTS} 和 ${SKILL_DIR}。"""
     text = pb.template
     text = re.sub(r"\$ARGUMENTS|\$\{ARGUMENTS\}", arguments, text)
     text = text.replace("${SKILL_DIR}", pb.directory)
@@ -135,7 +148,7 @@ def resolve_template(pb: Playbook, arguments: str) -> str:
 
 
 def invoke(name: str, arguments: str = "") -> dict[str, Any] | None:
-    """Prepare a playbook for execution. Returns None if not found."""
+    """准备 playbook 以便执行。未找到则返回 None。"""
     pb = find(name)
     if pb is None:
         return None
@@ -146,10 +159,10 @@ def invoke(name: str, arguments: str = "") -> dict[str, Any] | None:
     }
 
 
-# ── System prompt fragment ──────────────────────────────────
+# ── 系统提示词片段 ──────────────────────────────────
 
 def describe_for_directive() -> str:
-    """Build a text section describing available skills for the system prompt."""
+    """为系统提示词生成描述可用技能的文本片段。"""
     playbooks = discover()
     if not playbooks:
         return ""

@@ -1,12 +1,17 @@
-"""File reading instrument with line numbering."""
+"""文件读取工具，带行号输出。"""
 
 from __future__ import annotations
 
+import logging
 import os
 
 from ..toolkit import instrument
+from .paths import active_workspace_boundary_error, resolve_workspace_path
 
-_MAX_READ_BYTES = 512_000  # refuse to read files larger than ~500 KB
+log = logging.getLogger(__name__)
+
+_MAX_READ_BYTES = 512_000  # 拒绝读取超过 ~500 KB 的文件
+_MAX_READ_OUTPUT_CHARS = 40_000
 
 
 @instrument(
@@ -28,23 +33,42 @@ _MAX_READ_BYTES = 512_000  # refuse to read files larger than ~500 KB
     risk_level="read",
 )
 def read_file(path: str, from_line: int = 0, to_line: int = 0) -> str:
-    path = os.path.expanduser(path)
+    if not isinstance(path, str) or not path.strip():
+        return "INVALID PATH: path must be non-empty."
+    path = path.strip()
+    path = resolve_workspace_path(path)
+    boundary_err = active_workspace_boundary_error(path)
+    if boundary_err:
+        return boundary_err
+    if (
+        not isinstance(from_line, int)
+        or isinstance(from_line, bool)
+        or not isinstance(to_line, int)
+        or isinstance(to_line, bool)
+    ):
+        return "INVALID RANGE: from_line and to_line must be non-negative."
+    if from_line < 0 or to_line < 0:
+        return "INVALID RANGE: from_line and to_line must be non-negative."
+    if from_line > 0 and to_line > 0 and to_line < from_line:
+        return "INVALID RANGE: to_line must be greater than or equal to from_line."
+    log.debug("read_file: path=%s  from=%d  to=%d", path, from_line, to_line)
 
     if not os.path.isfile(path):
+        log.debug("read_file: 文件不存在 %s", path)
         return f"NOT FOUND: {path}"
 
     size = os.path.getsize(path)
     if size > _MAX_READ_BYTES:
         return f"FILE TOO LARGE ({size:,} bytes, limit {_MAX_READ_BYTES:,}): {path}"
 
-    # detect binary
+    # 检测二进制文件
     try:
         with open(path, "r", encoding="utf-8") as fh:
             lines = fh.readlines()
     except UnicodeDecodeError:
         return f"BINARY FILE (cannot display): {path}"
 
-    # optional line range
+    # 可选行范围
     if from_line > 0:
         start = max(from_line - 1, 0)
         end = to_line if to_line > 0 else len(lines)
@@ -53,9 +77,21 @@ def read_file(path: str, from_line: int = 0, to_line: int = 0) -> str:
     else:
         offset = 0
 
-    # format with line numbers
+    # 格式化行号
     numbered = []
     for i, line in enumerate(lines, start=offset + 1):
         numbered.append(f"{i:>6}| {line.rstrip()}")
 
-    return "\n".join(numbered)
+    output = "\n".join(numbered)
+    if len(output) > _MAX_READ_OUTPUT_CHARS:
+        half = _MAX_READ_OUTPUT_CHARS // 2
+        output = (
+            output[:half]
+            + (
+                f"\n\n... ({len(output) - _MAX_READ_OUTPUT_CHARS} chars omitted; "
+                "use from_line/to_line for a narrower range) ...\n\n"
+            )
+            + output[-half:]
+        )
+
+    return output

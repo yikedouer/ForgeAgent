@@ -1,4 +1,4 @@
-"""User interface — REPL and system prompt assembly."""
+"""用户界面——REPL 和系统提示词组装。"""
 
 from .repl import main, ForgeREPL
 from .directive import build as build_directive

@@ -1,4 +1,4 @@
-"""Allow running as `python -m forgecc`."""
+"""允许通过 `python -m forgecc` 启动。"""
 
 from .interface.repl import main
 

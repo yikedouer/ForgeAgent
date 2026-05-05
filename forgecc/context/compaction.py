@@ -1,193 +1,169 @@
-"""Tiered context-window compaction.
+"""多层上下文窗口压缩管道。
 
-Problem: The model has a finite context window, but a complex task may
-span dozens of rounds producing large tool outputs. Without compaction
-the conversation will eventually exceed the budget and fail.
+问题：模型有有限的上下文窗口，但复杂任务可能跨越几十个轮次并
+产生大量工具输出。若不压缩，对话终将超出预算并失败。
 
-Solution: A three-tier compaction pipeline, each tier more aggressive
-than the last. The engine invokes `maybe_compact()` after every round;
-it applies the lightest sufficient tier and stops.
+解决方案：渐进式压缩管道，每层比前一层更激进（也更耗资源）。
+引擎在每次 LLM 调用前触发 ``maybe_compact()``，
+应用最轻量且足够的层级后停止。
 
-  Tier 1 — DISTILL:  Replace verbose tool outputs older than N turns
-           with a one-line digest. Cheap and lossless for recent work.
+  Tier 1a — BUDGET (50%)：
+      基于上下文利用率的动态按结果截断（头尾保留）。
+      50-70%：30 K 预算；70%+：15 K 预算。
 
-  Tier 2 — CONDENSE: Ask the LLM to summarise the entire conversation
-           so far into a compact paragraph, then drop all messages
-           older than the summary. Moderate cost, some information loss.
+  Tier 1b — SNIP (50%)：
+      将超大工具结果持久化到磁盘（旧版 50 K 阈值），
+      然后将旧工具输出压缩为单行摘要。
 
-  Tier 3 — PRUNE:    Emergency fallback. Keep only the system message,
-           the most recent K messages, and a brief header. Used when
-           even a condensed summary would push past the budget.
+  Tier 2 — SNIP STALE (60%)：
+      去重 read_file 调用（仅保留每个路径的最新读取），
+      清除除最近 3 个外的所有工具结果。
+
+  Tier 2b — MICROCOMPACT IDLE（缓存冷却）：
+      空闲 > 5 分钟时，激进清除除最新 3 个外的
+      所有旧工具结果。
+
+  Tier 3 — CONTEXT COLLAPSE (75%)：
+      通过 LLM 生成旧消息摘要，但**不修改原始对话
+      记录**。可逆。参见 ``collapse.py``。
+
+  Tier 4 — AUTOCOMPACT (90%)：
+      发起子调用生成结构化两阶段摘要，
+      然后破坏性地替换旧消息。熔断器防护连续失败。
+
+  紧急裁剪 (95%)：
+      硬回退——丢弃除系统 + 近期尾部外的所有内容。
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..core.providers import Provider
 
-
-def _estimate_tokens(text: str) -> int:
-    """Rough heuristic — ~3.5 chars per token for mixed content."""
-    return max(1, len(text) // 4)
-
-
-def _msg_tokens(msg: dict) -> int:
-    total = 0
-    if msg.get("content"):
-        total += _estimate_tokens(str(msg["content"]))
-    if msg.get("tool_calls"):
-        total += _estimate_tokens(str(msg["tool_calls"]))
-    return total
-
-
-def _conversation_tokens(messages: list[dict]) -> int:
-    return sum(_msg_tokens(m) for m in messages)
-
-
-# ── Tier 1: Distill old tool outputs ────────────────────────
-
-def _distill(messages: list[dict], keep_recent: int = 6) -> bool:
-    """Trim tool-result messages older than `keep_recent` to a short tag."""
-    changed = False
-    cutoff = len(messages) - keep_recent
-
-    for i in range(cutoff):
-        m = messages[i]
-        if m.get("role") == "tool" and len(str(m.get("content", ""))) > 200:
-            original = str(m["content"])
-            lines = original.splitlines()
-            if len(lines) > 3:
-                digest = f"{lines[0]}  ... [{len(lines)} lines distilled] ...  {lines[-1]}"
-                messages[i] = {**m, "content": digest}
-                changed = True
-    return changed
-
-
-# ── Boundary safety ────────────────────────────────────────
-
-def _safe_split_point(messages: list[dict], desired: int) -> int:
-    """Adjust a split point so we don't cut between tool_use and tool_result.
-
-    The API requires that every assistant message containing tool_calls
-    is immediately followed by corresponding tool-role messages.  Splitting
-    between them causes an error.
-
-    Walk *backward* from `desired` until we find a point that is NOT
-    inside a tool_use→tool_result pair.
-    """
-    idx = min(desired, len(messages))
-    # walk back: if the message at idx is a tool result, keep going back
-    # until we've passed the matching assistant message with tool_calls.
-    while idx > 1:
-        msg = messages[idx - 1] if idx <= len(messages) else None
-        if msg is None:
-            break
-        # if we'd start right after a tool-result, we're mid-pair
-        if msg.get("role") == "tool":
-            idx -= 1
-            continue
-        # if we'd start right after an assistant with tool_calls,
-        # the tool results following it haven't been included yet
-        if (msg.get("role") == "assistant" and msg.get("tool_calls")):
-            idx -= 1
-            continue
-        break
-    return max(idx, 1)  # never go before index 1 (keep system msg)
-
-
-# ── Tier 2: LLM-powered condensation ───────────────────────
-
-_CONDENSE_PROMPT = (
-    "Summarise the conversation so far into a concise paragraph. "
-    "Preserve key decisions, file paths modified, and pending tasks. "
-    "Omit tool output details."
+from .collapse import CollapseState, try_collapse, project_view  # noqa: F401
+from .compaction_autocompact import (
+    MAX_CONSECUTIVE_FAILURES,
+    _autocompact,
+    _extract_recent_file_paths,
+)
+from .compaction_messages import safe_split_point as _safe_split_point
+from .compaction_tool_entries import (
+    SNIPPABLE_TOOLS,
+    SNIP_PLACEHOLDER,
+)
+from .compaction_tokens import (
+    conversation_tokens as _conversation_tokens,
+    estimate_tokens as _estimate_tokens,
+    msg_tokens as _msg_tokens,
+)
+from .compaction_tiers import (
+    KEEP_RECENT_RESULTS,
+    MICROCOMPACT_IDLE_S,
+    _build_tool_name_map,
+    _budget_tool_results,
+    _microcompact_idle,
+    _prune,
+    _snip,
+    _snip_stale_results,
 )
 
-
-def _condense(messages: list[dict], provider: Provider, keep_recent: int = 8) -> bool:
-    """Replace old messages with an LLM-generated summary."""
-    if len(messages) <= keep_recent + 2:
-        return False
-
-    # find safe boundary
-    split = _safe_split_point(messages, len(messages) - keep_recent)
-    old_slice = messages[1:split]
-    if not old_slice:
-        return False
-
-    summary_input = [
-        {"role": "user", "content": _CONDENSE_PROMPT},
-        {"role": "user", "content": "\n".join(
-            f"[{m.get('role', '?')}] {str(m.get('content', ''))[:300]}"
-            for m in old_slice
-        )},
-    ]
-    try:
-        result = provider.generate(summary_input)
-        summary_text = result.text or "(no summary produced)"
-    except Exception:
-        return False  # degrade gracefully — skip condensation
-
-    # replace old messages with the summary
-    summary_msg = {"role": "user", "content": f"[CONTEXT SUMMARY]\n{summary_text}"}
-    messages[1:split] = [summary_msg]
-    return True
+import logging
+log = logging.getLogger(__name__)
 
 
-# ── Tier 3: Emergency prune ─────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+# 公开入口 — 渐进式管道
+# ═══════════════════════════════════════════════════════════════
 
-def _prune(messages: list[dict], keep_recent: int = 4) -> bool:
-    """Last resort — drop everything except system + recent tail."""
-    if len(messages) <= keep_recent + 1:
-        return False
+@dataclass
+class CompactionResult:
+    """压缩轮次的结果。"""
+    performed: bool
+    collapse: CollapseState | None = None
 
-    # find safe boundary
-    split = _safe_split_point(messages, len(messages) - keep_recent)
-    tail = messages[split:]
-
-    header = {"role": "user", "content": "[CONTEXT PRUNED — earlier messages removed to fit budget]"}
-
-    # check if first message is system
-    if messages and messages[0].get("role") == "system":
-        messages[:] = [messages[0], header] + tail
-    else:
-        messages[:] = [header] + tail
-    return True
-
-
-# ── Public entry point ──────────────────────────────────────
 
 def maybe_compact(
     messages: list[dict],
     budget: int,
     provider: Provider | None = None,
-) -> bool:
-    """Apply the lightest compaction tier that brings the conversation
-    under budget. Returns True if any compaction was performed."""
+    session_id: str = "",
+    collapse_state: CollapseState | None = None,
+    failure_count: list[int] | None = None,
+    last_input_tokens: int = 0,
+    last_api_call_time: float | None = None,
+) -> CompactionResult:
+    """应用能将对话压到预算内的最轻量压缩层。
+    返回 ``CompactionResult`` 指示发生了什么
+    （以及是否创建了新的折叠）。"""
+
+    # 优先使用 API 返回的真实 token 数；回退到估算
+    if last_input_tokens > 0:
+        utilization = last_input_tokens / budget
+    else:
+        utilization = _conversation_tokens(messages) / budget
+
+    if utilization <= 0.50:
+        log.debug("压缩检查: utilization=%.1f%% ≤ 50%% — 跳过", utilization * 100)
+        return CompactionResult(False)
 
     current = _conversation_tokens(messages)
-    if current <= budget * 0.55:
-        return False  # well within budget — do nothing
+    log.info("压缩管道启动: utilization=%.1f%%  est_tokens=%d  budget=%d  msgs=%d",
+             utilization * 100, current, budget, len(messages))
 
-    # Tier 1: distill old tool outputs
-    if current > budget * 0.55:
-        if _distill(messages):
+    # ── Tier 1a: Budget (50%) — 动态按结果截断 ──
+    if utilization > 0.50:
+        changed = _budget_tool_results(messages, utilization)
+        if changed:
+            log.info("  Tier 1a BUDGET: 截断大结果")
+        current = _conversation_tokens(messages)
+
+    # ── Tier 1b: Snip (50%) — 旧版持久化 + 摘要 ─────────
+    if current > budget * 0.50:
+        if _snip(messages, session_id):
             current = _conversation_tokens(messages)
-            if current <= budget * 0.70:
-                return True
+            log.info("  Tier 1b SNIP: 压缩后 est_tokens=%d", current)
+            if current <= budget * 0.60:
+                return CompactionResult(True)
 
-    # Tier 2: LLM condensation
-    if current > budget * 0.70 and provider is not None and len(messages) > 12:
-        if _condense(messages, provider):
+    # ── Tier 2: Snip stale (60%) — 去重 + 清除 ──────────────
+    if current > budget * 0.60:
+        if _snip_stale_results(messages, utilization):
             current = _conversation_tokens(messages)
-            if current <= budget * 0.90:
-                return True
+            log.info("  Tier 2 SNIP_STALE: 去重后 est_tokens=%d", current)
+            if current <= budget * 0.75:
+                return CompactionResult(True)
 
-    # Tier 3: emergency prune
-    if current > budget * 0.90:
+    # ── Tier 2b: Microcompact idle（缓存冷却）───────────────
+    if _microcompact_idle(messages, last_api_call_time):
+        log.info("  Tier 2b MICROCOMPACT_IDLE: 空闲清理触发")
+    current = _conversation_tokens(messages)
+
+    # ── Tier 3: Context Collapse (75%) — 可逆 ───────────
+    if current > budget * 0.75 and provider is not None:
+        log.info("  Tier 3 COLLAPSE: 尝试可逆上下文折叠...")
+        new_collapse = try_collapse(
+            messages, provider, existing=collapse_state,
+        )
+        if new_collapse:
+            projected = project_view(messages, new_collapse)
+            proj_tokens = _conversation_tokens(projected)
+            log.info("  Tier 3 COLLAPSE: 投影后 est_tokens=%d", proj_tokens)
+            if proj_tokens <= budget * 0.90:
+                return CompactionResult(True, collapse=new_collapse)
+
+    # ── Tier 4: Autocompact (90%) — 破坏性 ───────────────
+    if current > budget * 0.90 and provider is not None:
+        log.info("  Tier 4 AUTOCOMPACT: 尝试 LLM 摘要压缩...")
+        if _autocompact(messages, provider, failure_count=failure_count):
+            return CompactionResult(True)
+
+    # ── 紧急裁剪 (95%) ───────────────────────────────────────
+    if _conversation_tokens(messages) > budget * 0.95:
+        log.warning("  紧急裁剪: 丢弃旧消息，仅保留近期尾部")
         _prune(messages)
-        return True
+        return CompactionResult(True)
 
-    return False
+    return CompactionResult(False)

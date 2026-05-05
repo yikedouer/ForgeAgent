@@ -1,3 +1,3 @@
-"""ForgeCC — A ground-up Python reconstruction of the Claude Code agent architecture."""
+"""ForgeCC — 从零复现 Claude Code Agent 架构的 Python 实现。"""
 
 __version__ = "0.1.0"
