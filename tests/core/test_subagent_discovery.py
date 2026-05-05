@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from forgecc.core.subagent_discovery import (
+from forgecc.core.subagent import (
     _parse_allowed_tools,
     _parse_frontmatter,
     discover_custom_agents,

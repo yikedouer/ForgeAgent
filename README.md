@@ -296,9 +296,7 @@ ForgeCC/
 │   │   ├── errors.py          (74)  #   结构化错误层级
 │   │   ├── runtime.py         (41)  #   transcript 追加 + runtime JSONL event 记录
 │   │   ├── plan_mode.py      (293)  #   计划模式（工具定义 + 状态机 + 提示词）
-│   │   ├── subagent.py       (246)  #   子 Agent 内置类型 + 配置入口
-│   │   ├── subagent_discovery.py (84) # 自定义 Agent 发现 + frontmatter
-│   │   ├── subagent_tools.py  (25)  #   子 Agent 工具集解析
+│   │   ├── subagent.py       (340)  #   子 Agent 类型、发现、frontmatter、工具集解析
 │   │   ├── agent_store.py    (185)  #   子 Agent 运行记录持久化
 │   │   └── log.py             (76)  #   统一日志模块
 │   │
@@ -707,13 +705,11 @@ toolkit.run_one(call_id, name, args)
 | 17 | `memory/recall.py` | 208 | 语义召回——LLM 辅助选择最相关的记忆 |
 | 18 | `memory/prefetch.py` | 115 | 异步预取——三门控 + 线程池提交 |
 | 19 | `skills/playbook.py` | 190 | Skill 发现 + frontmatter 解析 + 模板替换 |
-| 20 | `core/subagent.py` | 246 | 子 Agent 类型系统——内置 Agent 配置 + 自定义 Agent 接入 |
-| 21 | `core/subagent_discovery.py` | 84 | 自定义 Agent 发现——frontmatter、allowed-tools、多层目录覆盖 |
-| 22 | `core/subagent_tools.py` | 25 | 子 Agent 工具集解析——配置/调用白名单 + 递归工具屏蔽 |
-| 23 | `core/plan_mode.py` | 293 | 计划模式——只读沙箱 + 四选项审批 |
-| 23 | `interface/cli_startup.py` | 74 | CLI 启动参数校验——resume/latest、输出格式、Settings 覆盖 |
-| 24 | `interface/export_command.py` | 81 | 离线 checkpoint export 命令——Markdown/JSON/JSONL |
-| 25 | `core/engine_loop.py` | 293 | Agent 主循环——单轮输入准备、prompt/schema、LLM 恢复、token 统计 |
+| 20 | `core/subagent.py` | 340 | 子 Agent 类型系统——内置 Agent、自定义 Agent 发现、frontmatter、工具集解析 |
+| 21 | `core/plan_mode.py` | 293 | 计划模式——只读沙箱 + 四选项审批 |
+| 22 | `interface/cli_startup.py` | 74 | CLI 启动参数校验——resume/latest、输出格式、Settings 覆盖 |
+| 23 | `interface/export_command.py` | 81 | 离线 checkpoint export 命令——Markdown/JSON/JSONL |
+| 24 | `core/engine_loop.py` | 293 | Agent 主循环——单轮输入准备、prompt/schema、LLM 恢复、token 统计 |
 | 26 | `core/engine_tools.py` | 156 | 工具执行链——工具调用准备、计划工具结果、日志、持久化、transcript 回填 |
 | 27 | `core/engine_agents.py` | 402 | 子 Agent runtime——运行记录、单 Agent 执行、Team 并行、入口 API |
 | 28 | `core/engine_session.py` | 330 | 会话层——初始化、记忆注入、手动压缩、checkpoint、状态重置、计划/模型 API |

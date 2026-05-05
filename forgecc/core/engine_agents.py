@@ -15,7 +15,7 @@ from .log import get_logger
 from .permissions import PermissionMode
 from .settings import Settings
 from .subagent import get_sub_agent_config
-from .subagent_tools import resolve_sub_agent_tool_names
+from .subagent import resolve_sub_agent_tool_names
 
 
 ProviderFactory = Callable[[Settings], object]

@@ -1,4 +1,4 @@
-from forgecc.core.subagent_tools import resolve_sub_agent_tool_names
+from forgecc.core.subagent import resolve_sub_agent_tool_names
 
 
 def test_resolve_sub_agent_tool_names_uses_available_tools_when_unconfigured() -> None:
