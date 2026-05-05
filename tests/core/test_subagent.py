@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
+from forgecc.frontmatter import parse_frontmatter
 from forgecc.core.subagent import (
-    _parse_frontmatter,
     get_sub_agent_config,
     get_available_agent_types,
     build_agent_descriptions,
     reset_agent_cache,
-    READ_ONLY_INSTRUMENTS,
+    READ_ONLY_TOOLS,
     EXPLORE_PROMPT,
     PLAN_PROMPT,
     GENERAL_PROMPT,
@@ -29,31 +29,31 @@ def _reset_cache():
 
 
 # ═══════════════════════════════════════════════════════════
-# 8.1 _parse_frontmatter
+# 8.1 parse_frontmatter
 # ═══════════════════════════════════════════════════════════
 
 class TestParseFrontmatter:
     def test_valid(self):
         text = "---\nname: test\ndescription: A test\n---\nBody text"
-        meta, body = _parse_frontmatter(text)
+        meta, body = parse_frontmatter(text)
         assert meta["name"] == "test"
         assert meta["description"] == "A test"
         assert body == "Body text"
 
     def test_no_frontmatter(self):
         text = "Just plain text"
-        meta, body = _parse_frontmatter(text)
+        meta, body = parse_frontmatter(text)
         assert meta == {}
         assert body == "Just plain text"
 
     def test_missing_closing(self):
         text = "---\nname: test\nNo closing marker"
-        meta, body = _parse_frontmatter(text)
+        meta, body = parse_frontmatter(text)
         assert meta == {}
 
     def test_preserves_body_whitespace_after_separator_blank(self):
         text = "---\nname: custom\n---\n\n  prompt\n\n"
-        meta, body = _parse_frontmatter(text)
+        meta, body = parse_frontmatter(text)
 
         assert meta == {"name": "custom"}
         assert body == "  prompt\n\n"
@@ -67,12 +67,12 @@ class TestBuiltinAgents:
     def test_explore(self):
         config = get_sub_agent_config("explore")
         assert config["system_prompt"] == EXPLORE_PROMPT
-        assert config["tool_names"] == READ_ONLY_INSTRUMENTS
+        assert config["tool_names"] == READ_ONLY_TOOLS
 
     def test_plan(self):
         config = get_sub_agent_config("plan")
         assert config["system_prompt"] == PLAN_PROMPT
-        assert config["tool_names"] == READ_ONLY_INSTRUMENTS
+        assert config["tool_names"] == READ_ONLY_TOOLS
 
     def test_general(self):
         config = get_sub_agent_config("general")

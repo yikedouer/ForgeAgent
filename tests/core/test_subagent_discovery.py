@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from forgecc.core.subagent import (
-    _parse_allowed_tools,
-    _parse_frontmatter,
-    discover_custom_agents,
-)
+from forgecc.frontmatter import parse_frontmatter
+from forgecc.core.subagent import _parse_allowed_tools, discover_custom_agents
 
 
 def test_parse_frontmatter_returns_metadata_and_body() -> None:
-    meta, body = _parse_frontmatter("---\nname: test\ndescription: A test\n---\nBody")
+    meta, body = parse_frontmatter("---\nname: test\ndescription: A test\n---\nBody")
 
     assert meta == {"name": "test", "description": "A test"}
     assert body == "Body"

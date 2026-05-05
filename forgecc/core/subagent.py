@@ -20,12 +20,14 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from ..frontmatter import parse_frontmatter
+
 # ── 只读工具白名单 ──────────────────────────────────────────
 # explore 和 plan 子 Agent 允许使用的工具集。
 # 有意包含 ``shell``，用于只读命令（git log、find 等）；
 # 系统提示词负责约束其使用范围。
 
-READ_ONLY_INSTRUMENTS: set[str] = {
+READ_ONLY_TOOLS: set[str] = {
     "read_file",
     "glob_search",
     "grep_search",
@@ -35,7 +37,7 @@ READ_ONLY_INSTRUMENTS: set[str] = {
 # verification 子 Agent 允许使用的工具集。
 # 在只读工具基础上增加 shell（已包含）用于执行测试命令。
 # 不允许写文件——验证 Agent 只负责「确认」而非「修改」。
-VERIFICATION_INSTRUMENTS: set[str] = {
+VERIFICATION_TOOLS: set[str] = {
     "read_file",
     "glob_search",
     "grep_search",
@@ -43,33 +45,6 @@ VERIFICATION_INSTRUMENTS: set[str] = {
 }
 
 RECURSIVE_AGENT_TOOLS = {"agent", "team"}
-
-
-def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
-    """Parse simple ``key: value`` frontmatter from an agent definition."""
-    if not text.startswith("---"):
-        return {}, text
-
-    end = text.find("---", 3)
-    if end == -1:
-        return {}, text
-
-    header = text[3:end].strip()
-    body = text[end + 3:]
-    if body.startswith("\n"):
-        body = body[1:]
-    if body.startswith("\n"):
-        body = body[1:]
-
-    meta: dict[str, str] = {}
-    for line in header.splitlines():
-        line = line.strip()
-        if not line or ":" not in line:
-            continue
-        key, _, val = line.partition(":")
-        meta[key.strip()] = val.strip()
-
-    return meta, body
 
 
 def _parse_allowed_tools(raw: str) -> set[str] | None:
@@ -89,7 +64,8 @@ def _load_agents_from_dir(
             continue
         try:
             raw = entry.read_text(encoding="utf-8")
-            meta, body = _parse_frontmatter(raw)
+            parsed = parse_frontmatter(raw)
+            meta, body = parsed.meta, parsed.body
             name = meta.get("name") or entry.stem
             allowed_tools: set[str] | None = None
             if "allowed-tools" in meta:
@@ -289,11 +265,11 @@ def get_sub_agent_config(agent_type: str) -> dict[str, Any]:
         }
 
     if agent_type == "explore":
-        return {"system_prompt": EXPLORE_PROMPT, "tool_names": READ_ONLY_INSTRUMENTS}
+        return {"system_prompt": EXPLORE_PROMPT, "tool_names": READ_ONLY_TOOLS}
     elif agent_type == "plan":
-        return {"system_prompt": PLAN_PROMPT, "tool_names": READ_ONLY_INSTRUMENTS}
+        return {"system_prompt": PLAN_PROMPT, "tool_names": READ_ONLY_TOOLS}
     elif agent_type in ("verification", "verify"):
-        return {"system_prompt": VERIFICATION_PROMPT, "tool_names": VERIFICATION_INSTRUMENTS}
+        return {"system_prompt": VERIFICATION_PROMPT, "tool_names": VERIFICATION_TOOLS}
     else:  # general（默认）
         return {"system_prompt": GENERAL_PROMPT, "tool_names": None}
 

@@ -6,8 +6,8 @@
 
 ## 依赖约束
 
-- **仅两个三方依赖**：`openai`（LLM 交互）+ `rich`（TUI 渲染）
-- 添加新依赖前必须论证：标准库能否实现？现有依赖能否覆盖？
+- **少而成熟的三方依赖**：优先选择职责单一、维护活跃的库承接标准协议/格式解析
+- 添加新依赖前必须论证：是否能删除自研基础设施代码？是否显著降低维护风险？
 - 测试依赖（`pytest`）仅限 dev 组
 
 ## 命名规范
@@ -17,7 +17,7 @@
 | 模块/文件 | snake_case | `plan_mode.py`, `agent_store.py` |
 | 类 | PascalCase | `Engine`, `PermissionEnforcer`, `ToolSpec` |
 | 函数/方法 | snake_case | `run_batch()`, `chat_stream()`, `for_model()` |
-| 常量 | UPPER_SNAKE | `_PROVIDER_PRESETS`, `READ_ONLY_INSTRUMENTS` |
+| 常量 | UPPER_SNAKE | `_PROVIDER_PRESETS`, `READ_ONLY_TOOLS` |
 | 私有成员 | 前缀 `_` | `_CATALOG`, `_active_engine`, `_enforcer` |
 | dataclass 字段 | snake_case | `context_budget`, `risk_level`, `api_version` |
 

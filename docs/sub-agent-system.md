@@ -13,7 +13,7 @@ ForgeCC 支持主 Agent 通过 `agent` 工具派生子 Agent 执行隔离任务�
 | **verification** | 只读 | 同 explore | 运行测试、构建验证 |
 | **general** | 完整 | 除 agent 外的全部工具 | 通用任务执行（默认） |
 
-> explore/plan/verification 共享 READ_ONLY_INSTRUMENTS 工具集（shell 设为只读模式），防止子 Agent 意外修改文件。
+> explore/plan/verification 共享 READ_ONLY_TOOLS 工具集（shell 设为只读模式），防止子 Agent 意外修改文件。
 
 ## 自定义 Agent
 
@@ -95,14 +95,14 @@ team 使用 `ThreadPoolExecutor` 并行执行多个子 Agent，所有结果汇�
 
 ```python
 # 内置只读类型
-READ_ONLY_INSTRUMENTS = {"read_file", "glob_search", "grep_search", "shell"}
-VERIFICATION_INSTRUMENTS = READ_ONLY_INSTRUMENTS  # 含 shell 用于测试
+READ_ONLY_TOOLS = {"read_file", "glob_search", "grep_search", "shell"}
+VERIFICATION_TOOLS = READ_ONLY_TOOLS  # 含 shell 用于测试
 
 # general 类型：全部工具减去 "agent"（防递归）
-GENERAL_INSTRUMENTS = set(catalog().keys()) - {"agent"}
+GENERAL_TOOLS = set(catalog().keys()) - {"agent"}
 
 # 自定义 Agent：根据 allowed-tools 字段过滤
-# allowed-tools 为空 → 使用 GENERAL_INSTRUMENTS
+# allowed-tools 为空 → 使用 GENERAL_TOOLS
 ```
 
 ## 子 Agent 隔离模型
