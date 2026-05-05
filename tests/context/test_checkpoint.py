@@ -6,13 +6,13 @@ import json
 
 import pytest
 
-import forgecc.context.checkpoint as ckpt
-from forgecc.context.checkpoint import Checkpoint, save, load, list_checkpoints
+import forgeagent.context.checkpoint as ckpt
+from forgeagent.context.checkpoint import Checkpoint, save, load, list_checkpoints
 
 
 class TestSaveLoad:
     def test_save_uses_env_session_dir(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         ckpt = Checkpoint(session_id="env", messages=[{"role": "user", "content": "hi"}])
 
         path = save(ckpt)
@@ -24,7 +24,7 @@ class TestSaveLoad:
         home = tmp_path / "home"
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("FORGECC_SESSION_DIR", "~/sessions")
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", "~/sessions")
         ckpt = Checkpoint(session_id="env", messages=[{"role": "user", "content": "hi"}])
 
         path = save(ckpt)
@@ -172,7 +172,7 @@ class TestSaveLoad:
 
     def test_load_rejects_non_string_model(self, tmp_path):
         (tmp_path / "bad.json").write_text(
-            json.dumps({"session_id": "bad", "messages": [], "model": ["qwen"]}),
+            json.dumps({"session_id": "bad", "messages": [], "model": ["bad"]}),
             encoding="utf-8",
         )
 
@@ -236,7 +236,7 @@ class TestSaveLoad:
         assert not (tmp_path / "bad.json").exists()
 
     def test_save_rejects_non_string_model(self, tmp_path):
-        ckpt = Checkpoint(session_id="bad", messages=[], model=["qwen"])
+        ckpt = Checkpoint(session_id="bad", messages=[], model=["bad"])
 
         with pytest.raises(ValueError, match="Invalid checkpoint"):
             save(ckpt, directory=tmp_path)

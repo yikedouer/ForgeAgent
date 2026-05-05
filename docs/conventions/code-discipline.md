@@ -1,81 +1,74 @@
 # 代码纪律
 
-## 核心原则
+## 原则
 
-**简洁优先，最小依赖。定位根因，不做临时修复。**
+- 简洁优先：不要为“看起来架构完整”而拆分文件或制造抽象。
+- 根因优先：修 bug 时先定位真实路径，再改代码。
+- 本地优先：敏感 endpoint、key、header、公司平台配置只放本地 `.env`，不进仓库。
+- 测试跟风险匹配：共享链路、工具执行、权限、上下文压缩必须有测试。
 
-## 依赖约束
-
-- **少而成熟的三方依赖**：优先选择职责单一、维护活跃的库承接标准协议/格式解析
-- 添加新依赖前必须论证：是否能删除自研基础设施代码？是否显著降低维护风险？
-- 测试依赖（`pytest`）仅限 dev 组
-
-## 命名规范
+## 命名
 
 | 对象 | 风格 | 示例 |
-|------|------|------|
-| 模块/文件 | snake_case | `plan_mode.py`, `agent_store.py` |
-| 类 | PascalCase | `Engine`, `PermissionEnforcer`, `ToolSpec` |
-| 函数/方法 | snake_case | `run_batch()`, `chat_stream()`, `for_model()` |
-| 常量 | UPPER_SNAKE | `_PROVIDER_PRESETS`, `READ_ONLY_TOOLS` |
-| 私有成员 | 前缀 `_` | `_CATALOG`, `_active_engine`, `_enforcer` |
-| dataclass 字段 | snake_case | `context_budget`, `risk_level`, `api_version` |
+|---|---|---|
+| 包/模块 | snake_case | `forgeagent`, `plan_mode.py` |
+| 类 | PascalCase | `Engine`, `ToolSpec` |
+| 函数/方法 | snake_case | `run_batch()` |
+| 常量 | UPPER_SNAKE | `READ_ONLY_TOOLS` |
+| 私有成员 | `_` 前缀 | `_CATALOG` |
 
-## 类型注解
+命名要贴近 Agent/LLM 惯例：`tool`、`agent`、`memory`、`provider`、`context`、`prompt` 优先于含义模糊的内部术语。
 
-- 所有公开函数必须有类型注解（参数 + 返回值）
-- 内部辅助函数建议有，不强制
-- 优先使用 `dataclass` 而非裸 `dict`
-- 使用 `from __future__ import annotations` 延迟求值（Python 3.11+）
+## 分层约束
 
-## 数据类设计
-
-- 不可变数据用 `@dataclass(frozen=True)`（如 `Playbook`, `ToolSpec`）
-- 可变配置用 `@dataclass`（如 `Settings`）
-- 避免继承，优先组合
-
-## 异常处理
-
-```python
-# 项目自定义异常层次
-ForgeError              # 基类
-├── ConfigError         # 配置错误（缺失 API key 等）
-├── ToolError           # 工具执行错误
-└── ProviderError       # LLM 调用错误
+```text
+interface -> core -> toolkit <- tools
+                 \-> context / memory / skills
 ```
 
-- 业务异常用自定义异常类，不裸抛 `Exception`
-- 工具函数中捕获异常后返回错误信息字符串（不让 Agent 循环崩溃）
-- Provider 层做重试（指数退避），超出重试次数后抛 `ProviderError`
+- `interface` 负责 CLI 和展示，不直接实现 Agent 决策。
+- `core` 负责编排，不写具体工具逻辑。
+- `tools` 只实现工具行为，路径必须经过 workspace 边界检查。
+- `context`、`memory`、`skills` 尽量保持可单独测试。
 
-## 模块分层
+允许的全局状态要少：
 
-单向依赖，禁止反向引用：
+- `toolkit._CATALOG`：工具注册表。
+- `core.engine._active_engine`：工具运行时定位当前 Engine。
 
-```
-interface/ → core/ → toolkit.py ← tools/
-                ↓
-          context/ / memory/ / skills/
-```
+## 文件大小
 
-- **绝对禁止**：tools/ 导入 core/、core/ 导入 interface/
-- **全局状态最小化**：仅 `toolkit._CATALOG`（工具目录）和 `engine._active_engine`（当前引擎引用）
+文件大小是软约束，不为压行数拆出碎模块。超过约 350 行时应检查是否存在清晰职责边界。
 
-## 文件组织
+保留聚合文件的条件：
 
-- 单文件行数是软约束，不用为压行数拆出 20-40 行的碎模块；超过约 350 行时需要有清晰职责边界
-- 当前 Engine 以职责聚合为准：`engine.py` 224 行、`engine_loop.py` 293 行、`engine_tools.py` 156 行、`subagent_runtime.py` 402 行、`engine_session.py` 330 行
-- 相关功能放同一目录（如 memory/ 下的 store/recall/prefetch/frontmatter）
-- `__init__.py` 只做导出，不放逻辑
+- 调用链高度相关。
+- 拆分后只会增加跳转成本。
+- 测试仍能覆盖关键分支。
 
-## 字符串与格式化
+## 依赖
 
-- 用户可见的输出用 Rich markup（`[bold]`、`[red]` 等）
-- 内部日志用 f-string
-- 系统提示词用字符串拼接（`"\n".join(parts)`），不用模板引擎
+新增依赖必须满足至少一项：
 
-## Git 规范
+- 删除明显自研协议/解析代码。
+- 降低安全或兼容风险。
+- 是领域内成熟标准库。
 
-- 提交消息遵循 Conventional Commits：`feat:` / `fix:` / `refactor:` / `docs:` / `test:`
-- 每个提交只做一件事
-- 测试必须随代码一起提交
+运行时依赖保持少而稳定；测试依赖放 optional dependency。
+
+## 错误处理
+
+- Provider 层把 SDK 异常归一化为项目异常。
+- 工具 handler 不应让 Agent 主循环崩溃，异常要转换为工具结果。
+- 文件路径相关错误要明确指出 workspace 边界或缺失文件。
+- 高风险操作由权限系统兜底，不只依赖提示词约束。
+
+## 文档同步
+
+改以下内容时必须同步文档：
+
+- 环境变量。
+- CLI 命令。
+- 工具名称或参数。
+- Skill / Agent 发现路径。
+- 运行测试方式。

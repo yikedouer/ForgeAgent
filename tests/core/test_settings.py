@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from forgecc.core.settings import Settings, _parse_dotenv, _load_env_cascade
+from forgeagent.core.settings import Settings, _parse_dotenv, _load_env_cascade
 
 
 # ═══════════════════════════════════════════════════════════
@@ -93,27 +93,27 @@ class TestLoadEnvCascade:
         home = tmp_path / "home"
         workspace = tmp_path / "workspace"
         other = tmp_path / "other"
-        (home / ".forgecc").mkdir(parents=True)
+        (home / ".forgeagent").mkdir(parents=True)
         workspace.mkdir()
         other.mkdir()
-        (home / ".forgecc" / ".env").write_text(
-            f"FORGECC_WORKSPACE={workspace}\n",
+        (home / ".forgeagent" / ".env").write_text(
+            f"FORGEAGENT_WORKSPACE={workspace}\n",
             encoding="utf-8",
         )
         (workspace / ".env").write_text(
-            "FORGECC_MODEL=deepseek-chat\nDEEPSEEK_API_KEY=sk-workspace\n",
+            "MODEL=custom-model\nOPENAI_API_KEY=sk-workspace\n",
             encoding="utf-8",
         )
         monkeypatch.setattr(Path, "home", lambda: home)
         monkeypatch.chdir(other)
-        for key in ("FORGECC_WORKSPACE", "FORGECC_MODEL", "DEEPSEEK_API_KEY"):
+        for key in ("FORGEAGENT_WORKSPACE", "MODEL", "OPENAI_API_KEY"):
             monkeypatch.delenv(key, raising=False)
 
         env = _load_env_cascade()
 
-        assert env["FORGECC_WORKSPACE"] == str(workspace)
-        assert env["FORGECC_MODEL"] == "deepseek-chat"
-        assert env["DEEPSEEK_API_KEY"] == "sk-workspace"
+        assert env["FORGEAGENT_WORKSPACE"] == str(workspace)
+        assert env["MODEL"] == "custom-model"
+        assert env["OPENAI_API_KEY"] == "sk-workspace"
 
     def test_workspace_env_path_expands_user_before_loading_project_env(
         self, tmp_path, monkeypatch,
@@ -121,28 +121,28 @@ class TestLoadEnvCascade:
         home = tmp_path / "home"
         workspace = home / "workspace"
         other = tmp_path / "other"
-        (home / ".forgecc").mkdir(parents=True)
+        (home / ".forgeagent").mkdir(parents=True)
         workspace.mkdir(parents=True)
         other.mkdir()
-        (home / ".forgecc" / ".env").write_text(
-            "FORGECC_WORKSPACE=~/workspace\n",
+        (home / ".forgeagent" / ".env").write_text(
+            "FORGEAGENT_WORKSPACE=~/workspace\n",
             encoding="utf-8",
         )
         (workspace / ".env").write_text(
-            "FORGECC_MODEL=deepseek-chat\nDEEPSEEK_API_KEY=sk-workspace\n",
+            "FORGEAGENT_MODEL=custom-model\nOPENAI_API_KEY=sk-workspace\n",
             encoding="utf-8",
         )
         monkeypatch.setattr(Path, "home", lambda: home)
         monkeypatch.setenv("HOME", str(home))
         monkeypatch.chdir(other)
-        for key in ("FORGECC_WORKSPACE", "FORGECC_MODEL", "DEEPSEEK_API_KEY"):
+        for key in ("FORGEAGENT_WORKSPACE", "FORGEAGENT_MODEL", "OPENAI_API_KEY"):
             monkeypatch.delenv(key, raising=False)
 
         env = _load_env_cascade()
 
-        assert env["FORGECC_WORKSPACE"] == "~/workspace"
-        assert env["FORGECC_MODEL"] == "deepseek-chat"
-        assert env["DEEPSEEK_API_KEY"] == "sk-workspace"
+        assert env["FORGEAGENT_WORKSPACE"] == "~/workspace"
+        assert env["FORGEAGENT_MODEL"] == "custom-model"
+        assert env["OPENAI_API_KEY"] == "sk-workspace"
 
     def test_blank_workspace_environment_loads_current_project_env(
         self, tmp_path, monkeypatch,
@@ -150,21 +150,21 @@ class TestLoadEnvCascade:
         home = tmp_path / "home"
         workspace = tmp_path / "workspace"
         workspace.mkdir()
-        (home / ".forgecc").mkdir(parents=True)
+        (home / ".forgeagent").mkdir(parents=True)
         (workspace / ".env").write_text(
-            "FORGECC_MODEL=deepseek-chat\nDEEPSEEK_API_KEY=sk-workspace\n",
+            "FORGEAGENT_MODEL=custom-model\nOPENAI_API_KEY=sk-workspace\n",
             encoding="utf-8",
         )
         monkeypatch.setattr(Path, "home", lambda: home)
         monkeypatch.chdir(workspace)
-        monkeypatch.setenv("FORGECC_WORKSPACE", "   ")
-        for key in ("FORGECC_MODEL", "DEEPSEEK_API_KEY"):
+        monkeypatch.setenv("FORGEAGENT_WORKSPACE", "   ")
+        for key in ("FORGEAGENT_MODEL", "OPENAI_API_KEY"):
             monkeypatch.delenv(key, raising=False)
 
         env = _load_env_cascade()
 
-        assert env["FORGECC_MODEL"] == "deepseek-chat"
-        assert env["DEEPSEEK_API_KEY"] == "sk-workspace"
+        assert env["FORGEAGENT_MODEL"] == "custom-model"
+        assert env["OPENAI_API_KEY"] == "sk-workspace"
 
 
 # ═══════════════════════════════════════════════════════════
@@ -174,27 +174,26 @@ class TestLoadEnvCascade:
 class TestSettingsResolve:
     def test_default_model(self, monkeypatch):
         # 清空影响的环境变量
-        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "FORGECC_MODEL",
-                   "FORGECC_CTX_BUDGET", "FORGECC_MAX_ROUNDS",
-                   "FORGECC_WORKSPACE", "FORGECC_PERMISSION_MODE",
-                   "DEEPSEEK_API_KEY", "QWEN_API_KEY"):
+        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "MODEL", "FORGEAGENT_MODEL",
+                   "FORGEAGENT_CTX_BUDGET", "FORGEAGENT_MAX_ROUNDS",
+                   "FORGEAGENT_WORKSPACE", "FORGEAGENT_PERMISSION_MODE",
+                   "OPENAI_API_KEY"):
             monkeypatch.delenv(k, raising=False)
         # 屏蔽 .env 文件影响，确保测试拿到纯默认值
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade", lambda: {}
+            "forgeagent.core.settings._load_env_cascade", lambda: {}
         )
         s = Settings.resolve()
-        assert s.model == "qwen3.6-plus"
+        assert s.model == "gpt-4o"
         assert s.context_budget == 128000
         assert s.max_rounds == 60
 
     def test_env_override(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
+            "forgeagent.core.settings._load_env_cascade",
             lambda: {"OPENAI_API_KEY": "sk-test",
-                     "FORGECC_PROVIDER": "openai",
-                     "FORGECC_MODEL": "gpt-4",
-                     "FORGECC_CTX_BUDGET": "64000"},
+                     "MODEL": "gpt-4",
+                     "FORGEAGENT_CTX_BUDGET": "64000"},
         )
         s = Settings.resolve()
         assert s.api_key == "sk-test"
@@ -203,8 +202,8 @@ class TestSettingsResolve:
 
     def test_hook_paths_are_parsed_from_env(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_HOOKS": " hooks/a.py : hooks/b.py "},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_HOOKS": " hooks/a.py : hooks/b.py "},
         )
 
         s = Settings.resolve()
@@ -213,9 +212,9 @@ class TestSettingsResolve:
 
     def test_mcp_servers_are_parsed_from_env(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
+            "forgeagent.core.settings._load_env_cascade",
             lambda: {
-                "FORGECC_MCP_SERVERS": """
+                "FORGEAGENT_MCP_SERVERS": """
                 {
                   "filesystem": {
                     "command": "uvx",
@@ -235,9 +234,9 @@ class TestSettingsResolve:
 
     def test_invalid_numeric_settings_use_defaults(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_CTX_BUDGET": "many",
-                     "FORGECC_MAX_ROUNDS": "often"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_CTX_BUDGET": "many",
+                     "FORGEAGENT_MAX_ROUNDS": "often"},
         )
         s = Settings.resolve()
         assert s.context_budget == 128000
@@ -245,9 +244,9 @@ class TestSettingsResolve:
 
     def test_non_positive_numeric_settings_use_defaults(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_CTX_BUDGET": "0",
-                     "FORGECC_MAX_ROUNDS": "-1"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_CTX_BUDGET": "0",
+                     "FORGEAGENT_MAX_ROUNDS": "-1"},
         )
         s = Settings.resolve()
         assert s.context_budget == 128000
@@ -255,9 +254,9 @@ class TestSettingsResolve:
 
     def test_boolean_numeric_settings_use_defaults(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_CTX_BUDGET": True,
-                     "FORGECC_MAX_ROUNDS": True},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_CTX_BUDGET": True,
+                     "FORGEAGENT_MAX_ROUNDS": True},
         )
         s = Settings.resolve()
         assert s.context_budget == 128000
@@ -265,24 +264,24 @@ class TestSettingsResolve:
 
     def test_permission_mode_is_normalized(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_PERMISSION_MODE": " DANGER "},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_PERMISSION_MODE": " DANGER "},
         )
         s = Settings.resolve()
         assert s.permission_mode == "danger"
 
     def test_invalid_permission_mode_uses_prompt(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_PERMISSION_MODE": "oops"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_PERMISSION_MODE": "oops"},
         )
         s = Settings.resolve()
         assert s.permission_mode == "prompt"
 
     def test_non_string_permission_mode_uses_prompt(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_PERMISSION_MODE": ["danger"]},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_PERMISSION_MODE": ["danger"]},
         )
         s = Settings.resolve()
         assert s.permission_mode == "prompt"
@@ -292,8 +291,8 @@ class TestSettingsResolve:
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_WORKSPACE": "~/project"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_WORKSPACE": "~/project"},
         )
 
         s = Settings.resolve()
@@ -305,8 +304,8 @@ class TestSettingsResolve:
     ):
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_WORKSPACE": ["~/project"]},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_WORKSPACE": ["~/project"]},
         )
 
         s = Settings.resolve()
@@ -316,94 +315,53 @@ class TestSettingsResolve:
     def test_blank_workspace_uses_current_directory(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_WORKSPACE": "   "},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_WORKSPACE": "   "},
         )
 
         s = Settings.resolve()
 
         assert s.workspace == str(tmp_path)
 
-    def test_deepseek_preset(self, monkeypatch):
-        """模型名以 deepseek 开头时自动推断 DeepSeek 服务商。"""
+    def test_openai_compatible_endpoint_from_env(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-ds-test",
-                     "FORGECC_MODEL": "deepseek-chat"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test",
+                     "OPENAI_BASE_URL": "https://proxy.example/v1",
+                     "FORGEAGENT_MODEL": "custom-model"},
         )
         s = Settings.resolve()
-        assert s.model == "deepseek-chat"
-        assert s.api_key == "sk-ds-test"
-        assert s.base_url == "https://api.deepseek.com"
-
-    def test_qwen_preset(self, monkeypatch):
-        """模型名以 qwen 开头时自动推断 Qwen 服务商。"""
-        monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"QWEN_API_KEY": "sk-qw-test",
-                     "FORGECC_MODEL": "qwen3.6-plus"},
-        )
-        s = Settings.resolve()
-        assert s.model == "qwen3.6-plus"
-        assert s.api_key == "sk-qw-test"
-        assert s.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
-
-    def test_provider_api_key_trims_whitespace(self, monkeypatch):
-        monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"QWEN_API_KEY": " sk-qw-test ",
-                     "FORGECC_MODEL": "qwen3.6-plus"},
-        )
-
-        s = Settings.resolve()
-
-        assert s.api_key == "sk-qw-test"
-
-    def test_non_string_openai_base_url_uses_provider_default(
-        self, monkeypatch,
-    ):
-        monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"QWEN_API_KEY": "sk-qw-test",
-                     "FORGECC_MODEL": "qwen3.6-plus",
-                     "OPENAI_BASE_URL": ["https://proxy.example"]},
-        )
-
-        s = Settings.resolve()
-
-        assert s.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
-
-    def test_openai_base_url_trims_whitespace(self, monkeypatch):
-        monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"QWEN_API_KEY": "sk-qw-test",
-                     "FORGECC_PROVIDER": "qwen",
-                     "OPENAI_BASE_URL": " https://proxy.example/v1 "},
-        )
-
-        s = Settings.resolve()
-
+        assert s.model == "custom-model"
+        assert s.api_key == "sk-test"
         assert s.base_url == "https://proxy.example/v1"
 
-    def test_azure_api_version_trims_whitespace(self, monkeypatch):
+    def test_model_name_does_not_infer_provider(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"AZURE_API_KEY": "sk-az-test",
-                     "FORGECC_PROVIDER": "azure",
-                     "AZURE_API_VERSION": " 2024-12-01-preview "},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test",
+                     "FORGEAGENT_MODEL": "provider-looking-model"},
+        )
+        s = Settings.resolve()
+        assert s.model == "provider-looking-model"
+        assert s.api_key == "sk-test"
+        assert s.base_url == "https://api.openai.com/v1"
+
+    def test_openai_api_key_trims_whitespace(self, monkeypatch):
+        monkeypatch.setattr(
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": " sk-test "},
         )
 
         s = Settings.resolve()
 
-        assert s.api_version == "2024-12-01-preview"
+        assert s.api_key == "sk-test"
 
-    def test_unknown_provider_non_string_openai_base_url_uses_default(
+    def test_non_string_openai_base_url_uses_openai_default(
         self, monkeypatch,
     ):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_PROVIDER": "custom",
-                     "FORGECC_MODEL": "custom-model",
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test",
                      "OPENAI_BASE_URL": ["https://proxy.example"]},
         )
 
@@ -411,113 +369,126 @@ class TestSettingsResolve:
 
         assert s.base_url == "https://api.openai.com/v1"
 
-    def test_model_name_trims_whitespace_before_provider_infer(
-        self, monkeypatch,
-    ):
+    def test_openai_base_url_trims_whitespace(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-ds-test",
-                     "FORGECC_MODEL": " deepseek-chat "},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_BASE_URL": " https://proxy.example/v1 "},
+        )
+
+        s = Settings.resolve()
+
+        assert s.base_url == "https://proxy.example/v1"
+
+    def test_unknown_env_keys_do_not_change_endpoint(self, monkeypatch):
+        monkeypatch.setattr(
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"SOME_PROVIDER": "legacy",
+                     "OPENAI_API_KEY": "sk-test",
+                     "FORGEAGENT_MODEL": "custom-model"},
+        )
+
+        s = Settings.resolve()
+
+        assert s.api_key == "sk-test"
+        assert s.model == "custom-model"
+        assert s.base_url == "https://api.openai.com/v1"
+
+    def test_model_name_trims_whitespace(self, monkeypatch):
+        monkeypatch.setattr(
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test",
+                     "FORGEAGENT_MODEL": " custom-model "},
         )
         s = Settings.resolve()
-        assert s.model == "deepseek-chat"
-        assert s.api_key == "sk-ds-test"
-        assert s.base_url == "https://api.deepseek.com"
+        assert s.model == "custom-model"
+        assert s.api_key == "sk-test"
+        assert s.base_url == "https://api.openai.com/v1"
 
     def test_non_string_model_uses_default_model(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"FORGECC_MODEL": ["deepseek-chat"]},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"FORGEAGENT_MODEL": ["custom-model"]},
         )
 
         s = Settings.resolve()
 
-        assert s.model == "qwen3.6-plus"
-        assert s.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        assert s.model == "gpt-4o"
+        assert s.base_url == "https://api.openai.com/v1"
 
-    def test_explicit_provider_overrides_model_infer(self, monkeypatch):
-        """显式设置 FORGECC_PROVIDER 优先于模型名推断。
-
-        场景：用 Qwen 服务商代理跑 DeepSeek 模型。
-        """
+    def test_endpoint_defaults_when_only_model_and_key_are_set(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"QWEN_API_KEY": "sk-qw-proxy",
-                     "FORGECC_PROVIDER": "qwen",
-                     "FORGECC_MODEL": "deepseek-chat"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test",
+                     "FORGEAGENT_MODEL": "custom-model"},
         )
         s = Settings.resolve()
-        assert s.model == "deepseek-chat"  # 模型名透传
-        assert s.api_key == "sk-qw-proxy"  # 用 Qwen 的 key
-        assert s.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"  # Qwen 的地址
+        assert s.model == "custom-model"
+        assert s.api_key == "sk-test"
+        assert s.base_url == "https://api.openai.com/v1"
 
-    def test_explicit_provider_trims_whitespace(self, monkeypatch):
+    def test_model_whitespace_does_not_change_endpoint(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"QWEN_API_KEY": "sk-qw-proxy",
-                     "FORGECC_PROVIDER": " qwen ",
-                     "FORGECC_MODEL": "deepseek-chat"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test",
+                     "FORGEAGENT_MODEL": " custom-model "},
         )
         s = Settings.resolve()
-        assert s.model == "deepseek-chat"
-        assert s.api_key == "sk-qw-proxy"
-        assert s.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        assert s.model == "custom-model"
+        assert s.api_key == "sk-test"
+        assert s.base_url == "https://api.openai.com/v1"
 
-    def test_blank_provider_uses_model_inference(self, monkeypatch):
+    def test_blank_extra_provider_like_key_is_ignored(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-ds-test",
-                     "FORGECC_PROVIDER": "   ",
-                     "FORGECC_MODEL": "deepseek-chat"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test",
+                     "SOME_PROVIDER": "   ",
+                     "FORGEAGENT_MODEL": "custom-model"},
         )
 
         s = Settings.resolve()
 
-        assert s.model == "deepseek-chat"
-        assert s.api_key == "sk-ds-test"
-        assert s.base_url == "https://api.deepseek.com"
+        assert s.model == "custom-model"
+        assert s.api_key == "sk-test"
+        assert s.base_url == "https://api.openai.com/v1"
 
-    def test_provider_only_uses_default_model(self, monkeypatch):
-        """只设置 FORGECC_PROVIDER 未设置模型时使用服务商默认模型。"""
+    def test_api_key_only_uses_default_model(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-ds",
-                     "FORGECC_PROVIDER": "deepseek"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test"},
         )
         s = Settings.resolve()
-        assert s.model == "deepseek-chat"  # DeepSeek 默认模型
-        assert s.base_url == "https://api.deepseek.com"
+        assert s.model == "gpt-4o"
+        assert s.api_key == "sk-test"
+        assert s.base_url == "https://api.openai.com/v1"
 
-    def test_same_provider_switch_model(self, monkeypatch):
-        """同一服务商内切换模型——只改 FORGECC_MODEL 就行。"""
+    def test_same_endpoint_switch_model(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"QWEN_API_KEY": "sk-qw",
-                     "FORGECC_PROVIDER": "qwen",
-                     "FORGECC_MODEL": "qwen3.5-plus"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test",
+                     "OPENAI_BASE_URL": "https://proxy.example/v1",
+                     "FORGEAGENT_MODEL": "smaller-model"},
         )
         s = Settings.resolve()
-        assert s.model == "qwen3.5-plus"
-        assert s.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        assert s.model == "smaller-model"
+        assert s.base_url == "https://proxy.example/v1"
 
-    def test_fallback_to_openai_key(self, monkeypatch):
-        """专属 key 不存在时回退到 OPENAI_API_KEY。"""
+    def test_openai_key_is_used_for_any_model(self, monkeypatch):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
+            "forgeagent.core.settings._load_env_cascade",
             lambda: {"OPENAI_API_KEY": "sk-fallback",
-                     "FORGECC_MODEL": "deepseek-chat"},
+                     "FORGEAGENT_MODEL": "custom-model"},
         )
         s = Settings.resolve()
         assert s.api_key == "sk-fallback"
 
-    def test_non_string_provider_key_falls_back_to_openai_key(
+    def test_non_openai_key_is_ignored(
         self, monkeypatch,
     ):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"QWEN_API_KEY": ["sk-qw"],
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"CUSTOM_API_KEY": "sk-provider-specific",
                      "OPENAI_API_KEY": "sk-fallback",
-                     "FORGECC_MODEL": "qwen3.6-plus"},
+                     "FORGEAGENT_MODEL": "custom-model"},
         )
 
         s = Settings.resolve()
@@ -542,7 +513,7 @@ class TestSettingsReplace:
         assert new.context_budget == mock_settings.context_budget
 
     def test_replace_preserves_mcp_server_config_objects(self, mock_settings):
-        from forgecc.core.mcp import MCPServerConfig
+        from forgeagent.core.mcp import MCPServerConfig
 
         server = MCPServerConfig(name="fs", command="uvx")
         settings = mock_settings.replace(mcp_servers=(server,))
@@ -554,16 +525,16 @@ class TestSettingsReplace:
 
 
 class TestSettingsForModel:
-    def test_for_model_trims_model_before_provider_infer(
+    def test_for_model_trims_model_and_reuses_endpoint(
         self, monkeypatch, mock_settings,
     ):
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-ds-test"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-other"},
         )
 
-        new = mock_settings.for_model(" deepseek-chat ")
+        new = mock_settings.for_model(" custom-model ")
 
-        assert new.model == "deepseek-chat"
-        assert new.api_key == "sk-ds-test"
-        assert new.base_url == "https://api.deepseek.com"
+        assert new.model == "custom-model"
+        assert new.api_key == mock_settings.api_key
+        assert new.base_url == mock_settings.base_url

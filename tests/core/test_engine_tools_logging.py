@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from forgecc.core.engine_loop import (
+from forgeagent.core.engine_loop import (
     format_tool_call_log,
     format_tool_result_log,
 )
-from forgecc.toolkit import ToolResult
+from forgeagent.toolkit import ToolResult
 
 
 def test_format_tool_call_log_summarizes_dict_args():

@@ -1,4 +1,4 @@
-"""引擎集成测试 — forgecc.core.engine（重 Mock）"""
+"""引擎集成测试 — forgeagent.core.engine（重 Mock）"""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
-from forgecc.core.settings import Settings
-from forgecc.core.permissions import PermissionMode
-from forgecc.core.errors import ContextWindowError
-from forgecc.core.mcp import MCPServerConfig
+from forgeagent.core.settings import Settings
+from forgeagent.core.permissions import PermissionMode
+from forgeagent.core.errors import ContextWindowError
+from forgeagent.core.mcp import MCPServerConfig
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -71,9 +71,9 @@ def engine_env(tmp_path):
     provider._total_out = 0
 
     # Patch maybe_start_memory_prefetch 避免真实线程池
-    with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-         patch("forgecc.core.engine_loop.persist_if_large", side_effect=lambda sid, name, out: out):
-        from forgecc.core.engine import Engine
+    with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+         patch("forgeagent.core.engine_loop.persist_if_large", side_effect=lambda sid, name, out: out):
+        from forgeagent.core.engine import Engine
         eng = Engine(settings, provider)
         yield eng, provider
 
@@ -95,8 +95,8 @@ class TestEngineInit:
         settings = _make_settings(tmp_path)
         provider = MagicMock()
         provider.tokens_used = (0, 0)
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None):
-            from forgecc.core.engine import Engine
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None):
+            from forgeagent.core.engine import Engine
             eng = Engine(settings, provider, is_sub_agent=True)
             assert eng._is_sub_agent is True
 
@@ -107,8 +107,8 @@ class TestEngineInit:
         provider = MagicMock()
         provider.tokens_used = (0, 0)
 
-        with patch("forgecc.core.engine_session.load_hook_file") as load_hook_file:
-            from forgecc.core.engine import Engine
+        with patch("forgeagent.core.engine_session.load_hook_file") as load_hook_file:
+            from forgeagent.core.engine import Engine
 
             Engine(settings, provider)
 
@@ -126,10 +126,10 @@ class TestEngineInit:
         transport = MagicMock()
         client = MagicMock()
 
-        with patch("forgecc.core.engine_session.StdioMCPTransport", return_value=transport) as transport_cls, \
-             patch("forgecc.core.engine_session.MCPClient", return_value=client) as client_cls, \
-             patch("forgecc.core.engine_session.toolkit.register_mcp_tools", return_value=("mcp__docs__search",)) as register:
-            from forgecc.core.engine import Engine
+        with patch("forgeagent.core.engine_session.StdioMCPTransport", return_value=transport) as transport_cls, \
+             patch("forgeagent.core.engine_session.MCPClient", return_value=client) as client_cls, \
+             patch("forgeagent.core.engine_session.toolkit.register_mcp_tools", return_value=("mcp__docs__search",)) as register:
+            from forgeagent.core.engine import Engine
 
             eng = Engine(settings, provider)
 
@@ -146,8 +146,8 @@ class TestEngineInit:
         provider = MagicMock()
         provider.tokens_used = (0, 0)
 
-        with patch("forgecc.core.engine_session.StdioMCPTransport") as transport_cls:
-            from forgecc.core.engine import Engine
+        with patch("forgeagent.core.engine_session.StdioMCPTransport") as transport_cls:
+            from forgeagent.core.engine import Engine
 
             eng = Engine(settings, provider, is_sub_agent=True)
 
@@ -163,10 +163,10 @@ class TestEngineInit:
         transport = MagicMock()
         client = MagicMock()
 
-        with patch("forgecc.core.engine_session.StdioMCPTransport", return_value=transport), \
-             patch("forgecc.core.engine_session.MCPClient", return_value=client), \
-             patch("forgecc.core.engine_session.toolkit.register_mcp_tools", return_value=("mcp__docs__search",)):
-            from forgecc.core.engine import Engine
+        with patch("forgeagent.core.engine_session.StdioMCPTransport", return_value=transport), \
+             patch("forgeagent.core.engine_session.MCPClient", return_value=client), \
+             patch("forgeagent.core.engine_session.toolkit.register_mcp_tools", return_value=("mcp__docs__search",)):
+            from forgeagent.core.engine import Engine
 
             eng = Engine(settings, provider)
 
@@ -183,10 +183,10 @@ class TestEngineInit:
         transport = MagicMock()
         client = MagicMock()
 
-        with patch("forgecc.core.engine_session.StdioMCPTransport", return_value=transport), \
-             patch("forgecc.core.engine_session.MCPClient", return_value=client), \
-             patch("forgecc.core.engine_session.toolkit.register_mcp_tools", side_effect=RuntimeError("boom")):
-            from forgecc.core.engine import Engine
+        with patch("forgeagent.core.engine_session.StdioMCPTransport", return_value=transport), \
+             patch("forgeagent.core.engine_session.MCPClient", return_value=client), \
+             patch("forgeagent.core.engine_session.toolkit.register_mcp_tools", side_effect=RuntimeError("boom")):
+            from forgeagent.core.engine import Engine
 
             eng = Engine(settings, provider)
 
@@ -204,10 +204,10 @@ class TestRunBasic:
         comp = _make_completion(text="Answer")
         provider.generate.return_value = comp
 
-        with patch("forgecc.context.checkpoint.append_message_event") as append_event, \
-             patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.core.engine_loop.build_plan_mode_prompt", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="system prompt"):
+        with patch("forgeagent.context.checkpoint.append_message_event") as append_event, \
+             patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.core.engine_loop.build_plan_mode_prompt", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="system prompt"):
             eng.run("Hello")
 
         assert [call.args for call in append_event.call_args_list] == [
@@ -220,24 +220,24 @@ class TestRunBasic:
         comp = _make_completion(text="Answer")
         provider.generate.return_value = comp
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.core.engine_loop.build_plan_mode_prompt", return_value=None):
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.core.engine_loop.build_plan_mode_prompt", return_value=None):
             # Patch directive builder
-            with patch("forgecc.interface.directive.build", return_value="system prompt"):
+            with patch("forgeagent.interface.directive.build", return_value="system prompt"):
                 result = eng.run("Hello")
 
         assert result == "Answer"
         assert len(eng.transcript) == 2  # user + assistant
 
     def test_successful_main_agent_turn_auto_saves_checkpoint(self, engine_env):
-        from forgecc.context import checkpoint as ckpt
+        from forgeagent.context import checkpoint as ckpt
 
         eng, provider = engine_env
         provider.generate.return_value = _make_completion(text="Answer")
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.core.engine_loop.build_plan_mode_prompt", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="system prompt"):
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.core.engine_loop.build_plan_mode_prompt", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="system prompt"):
             eng.run("Hello")
 
         saved = ckpt.load(eng.session_id)
@@ -253,16 +253,16 @@ class TestRunBasic:
         comp = _make_completion(text="", invocations=[inv])
         provider.generate.return_value = comp
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="sys"), \
-             patch("forgecc.toolkit.run_batch") as mock_batch:
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="sys"), \
+             patch("forgeagent.toolkit.run_batch") as mock_batch:
             mock_batch.return_value = [MagicMock(call_id="c1", name="read_file", output="ok")]
             result = eng.run("Do something")
 
         assert "budget exhausted" in result
 
     def test_non_object_tool_args_do_not_crash_logging(self, engine_env):
-        from forgecc.toolkit import tool
+        from forgeagent.toolkit import tool
 
         @tool("bad_args_tool", "test", {})
         def bad_args_tool() -> str:
@@ -274,8 +274,8 @@ class TestRunBasic:
         comp_done = _make_completion(text="done")
         provider.generate.side_effect = [comp_tools, comp_done]
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="sys"):
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="sys"):
             result = eng.run("Do something")
 
         assert result == "done"
@@ -291,8 +291,8 @@ class TestRunBasic:
         comp_done = _make_completion(text="done")
         provider.generate.side_effect = [comp_tools, comp_done]
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="sys"):
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="sys"):
             result = eng.run("Do something")
 
         assert result == "done"
@@ -311,9 +311,9 @@ class TestRunBasic:
         def broken_callback(_name, _args):
             raise RuntimeError("callback down")
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="sys"), \
-             patch("forgecc.toolkit.run_batch") as mock_batch:
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="sys"), \
+             patch("forgeagent.toolkit.run_batch") as mock_batch:
             mock_batch.return_value = [MagicMock(call_id="c1", name="read_file", output="ok")]
             result = eng.run("Do something", on_tool=broken_callback)
 
@@ -327,10 +327,10 @@ class TestRunBasic:
         comp_done = _make_completion(text="done")
         provider.generate.side_effect = [comp_tools, comp_done]
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="sys"), \
-             patch("forgecc.toolkit.run_batch") as mock_batch, \
-             patch("forgecc.core.engine_loop.persist_if_large", side_effect=OSError("disk full")):
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="sys"), \
+             patch("forgeagent.toolkit.run_batch") as mock_batch, \
+             patch("forgeagent.core.engine_loop.persist_if_large", side_effect=OSError("disk full")):
             mock_batch.return_value = [MagicMock(call_id="c1", name="read_file", output="raw output")]
             result = eng.run("Do something")
 
@@ -352,8 +352,8 @@ class TestContextWindowRecovery:
         comp_ok = _make_completion(text="Recovered")
         provider.generate.side_effect = [ContextWindowError("too big"), comp_ok]
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="sys"):
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="sys"):
             result = eng.run("Big prompt")
 
         assert result == "Recovered"
@@ -403,8 +403,8 @@ class TestPlanMode:
         comp_done = _make_completion(text="done")
         provider.generate.side_effect = [comp_tools, comp_done]
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="sys"):
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="sys"):
             result = eng.run("Plan this")
 
         assert result == "done"
@@ -542,15 +542,11 @@ class TestCheckpoint:
 
     def test_restore_recovers_checkpoint_model(self, engine_env, monkeypatch):
         eng, provider = engine_env
-        eng.settings = eng.settings.replace(model="deepseek-chat")
+        eng.settings = eng.settings.replace(model="custom-model")
         saved_id = eng.session_id
         eng.save_checkpoint()
-        eng.settings = eng.settings.replace(model="qwen3.6-plus")
-
-        monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-deepseek"},
-        )
+        base_url = eng.settings.base_url
+        eng.settings = eng.settings.replace(model="base-model")
 
         providers = []
 
@@ -559,29 +555,29 @@ class TestCheckpoint:
                 self.settings = settings
                 providers.append(settings)
 
-        monkeypatch.setattr("forgecc.core.engine.Provider", FakeProvider)
+        monkeypatch.setattr("forgeagent.core.engine.Provider", FakeProvider)
 
         eng.restore_checkpoint(saved_id)
 
-        assert eng.settings.model == "deepseek-chat"
-        assert eng.settings.base_url == "https://api.deepseek.com"
+        assert eng.settings.model == "custom-model"
+        assert eng.settings.base_url == base_url
         assert eng.provider.settings is eng.settings
         assert providers == [eng.settings]
 
     def test_restore_can_preserve_current_model_provider(self, engine_env, monkeypatch):
         eng, provider = engine_env
-        eng.settings = eng.settings.replace(model="deepseek-chat")
+        eng.settings = eng.settings.replace(model="custom-model")
         saved_id = eng.session_id
         eng.save_checkpoint()
         current_settings = eng.settings.replace(
-            model="qwen3.6-plus",
+            model="base-model",
             api_key="sk-cli",
             base_url="https://proxy.example/v1",
         )
         eng.settings = current_settings
 
         monkeypatch.setattr(
-            "forgecc.core.engine.Provider",
+            "forgeagent.core.engine.Provider",
             lambda settings: pytest.fail("provider should not be rebuilt"),
         )
 
@@ -597,14 +593,14 @@ class TestCheckpoint:
 
 class TestSubAgentTools:
     def test_parallel_sub_agents_accept_empty_specs(self, engine_env):
-        from forgecc.core.engine import Engine
+        from forgeagent.core.engine import Engine
 
         result = Engine.execute_sub_agents_parallel([])
 
         assert result == []
 
     def test_parallel_sub_agents_report_malformed_specs_as_thread_errors(self, engine_env):
-        from forgecc.core.engine import Engine
+        from forgeagent.core.engine import Engine
 
         result = Engine.execute_sub_agents_parallel(["bad-spec"])
 
@@ -616,8 +612,8 @@ class TestSubAgentTools:
         }]
 
     def test_allowed_tools_intersect_available_tools(self, engine_env):
-        from forgecc import toolkit
-        from forgecc.core.engine import Engine
+        from forgeagent import toolkit
+        from forgeagent.core.engine import Engine
 
         @toolkit.tool(
             name="read_file",
@@ -643,7 +639,7 @@ class TestSubAgentTools:
             captured["tool_names"] = self._custom_tool_names
             return "done"
 
-        with patch("forgecc.core.engine.Engine.run", fake_run):
+        with patch("forgeagent.core.engine.Engine.run", fake_run):
             result = Engine.execute_sub_agent(
                 "general",
                 "limited task",
@@ -655,8 +651,8 @@ class TestSubAgentTools:
         assert captured["tool_names"] == {"read_file"}
 
     def test_sub_agent_tool_filter_always_removes_recursive_tools(self, engine_env):
-        from forgecc import toolkit
-        from forgecc.core.engine import Engine
+        from forgeagent import toolkit
+        from forgeagent.core.engine import Engine
 
         for name in ("read_file", "agent", "team"):
             toolkit.tool(
@@ -678,8 +674,8 @@ class TestSubAgentTools:
                 "tool_names": {"read_file", "agent", "team"},
             }
 
-        with patch("forgecc.core.subagent.get_sub_agent_config", fake_config), \
-             patch("forgecc.core.engine.Engine.run", fake_run):
+        with patch("forgeagent.core.subagent.get_sub_agent_config", fake_config), \
+             patch("forgeagent.core.engine.Engine.run", fake_run):
             result = Engine.execute_sub_agent(
                 "custom",
                 "recursive task",
@@ -766,8 +762,8 @@ class TestTokenTracking:
         comp = _make_completion(text="ok", usage_in=100, usage_out=50)
         provider.generate.return_value = comp
 
-        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.interface.directive.build", return_value="sys"):
+        with patch("forgeagent.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgeagent.interface.directive.build", return_value="sys"):
             eng.run("hello")
 
         assert eng._total_input_tokens == 100
@@ -805,11 +801,8 @@ class TestConversationReset:
 class TestModelSwitching:
     def test_switch_model_rebuilds_settings_and_provider(self, engine_env, monkeypatch):
         eng, _ = engine_env
-
-        monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-deepseek"},
-        )
+        original_api_key = eng.settings.api_key
+        original_base_url = eng.settings.base_url
 
         providers = []
 
@@ -818,13 +811,13 @@ class TestModelSwitching:
                 self.settings = settings
                 providers.append(settings)
 
-        with patch("forgecc.core.engine.Provider", FakeProvider):
-            settings = eng.switch_model("deepseek-chat")
+        with patch("forgeagent.core.engine.Provider", FakeProvider):
+            settings = eng.switch_model("custom-model")
 
         assert settings is eng.settings
-        assert settings.model == "deepseek-chat"
-        assert settings.api_key == "sk-deepseek"
-        assert settings.base_url == "https://api.deepseek.com"
+        assert settings.model == "custom-model"
+        assert settings.api_key == original_api_key
+        assert settings.base_url == original_base_url
         assert eng.provider.settings is settings
         assert providers == [settings]
 
@@ -837,7 +830,7 @@ class TestManualCompaction:
             {"role": "assistant", "content": "reply"},
         ]
 
-        from forgecc.core.engine_session import ManualCompactionReport
+        from forgeagent.core.engine_session import ManualCompactionReport
 
         compaction_result = MagicMock()
         compaction_result.performed = True
@@ -851,7 +844,7 @@ class TestManualCompaction:
             context_budget=eng.settings.context_budget,
         )
 
-        with patch("forgecc.core.engine.run_manual_compaction", return_value=expected_report):
+        with patch("forgeagent.core.engine.run_manual_compaction", return_value=expected_report):
             report = eng.compact_conversation()
 
         assert report is expected_report

@@ -1,132 +1,96 @@
 # 子 Agent 系统
 
-## 概述
-
-ForgeCC 支持主 Agent 通过 `agent` 工具派生子 Agent 执行隔离任务，通过 `team` 工具并行派生多个子 Agent。子 Agent 拥有独立的上下文和工具集，执行完成后将结果文本返回父对话。
+子 Agent 用于把一个任务拆给隔离上下文执行。父 Agent 通过 `agent` 工具启动单个子 Agent，通过 `team` 工具并行启动多个子 Agent。
 
 ## 内置类型
 
-| 类型 | 权限 | 工具集 | 用途 |
-|------|------|--------|------|
-| **explore** | 只读 | read_file, glob_search, grep_search, shell | 代码搜索、结构分析 |
-| **plan** | 只读 | 同 explore | 生成结构化计划 |
-| **verification** | 只读 | 同 explore | 运行测试、构建验证 |
-| **general** | 完整 | 除 agent 外的全部工具 | 通用任务执行（默认） |
+| 类型 | 工具集 | 用途 |
+|---|---|---|
+| `explore` | 只读工具 | 代码搜索、结构分析 |
+| `plan` | 只读工具 | 生成执行计划 |
+| `verification` | 只读工具 + shell | 运行测试、构建验证 |
+| `general` | 除 `agent` 外的全部工具 | 通用任务执行 |
 
-> explore/plan/verification 共享 READ_ONLY_TOOLS 工具集（shell 设为只读模式），防止子 Agent 意外修改文件。
+`explore`、`plan`、`verification` 默认不写文件。`general` 可写文件，但仍受权限模式和 workspace 边界保护。
 
 ## 自定义 Agent
 
-### 发现路径
+发现路径按优先级从低到高：
 
-按优先级从低到高，同名文件高优先级覆盖低优先级：
-
+```text
+~/.claude/agents/*.md
+~/.forgeagent/agents/*.md
+~/.agents/agents/*.md
+$FORGEAGENT_AGENTS_DIR/*.md
+<workspace>/.claude/agents/*.md
+<workspace>/.forgeagent/agents/*.md
+<workspace>/.agents/agents/*.md
 ```
-1. ~/.claude/agents/*.md       （兼容 Claude Code）
-2. ~/.forgecc/agents/*.md      （用户级）
-3. $FORGECC_AGENTS_DIR/*.md    （环境变量指定）
-4. <cwd>/.claude/agents/*.md   （项目级兼容）
-5. <cwd>/.forgecc/agents/*.md  （项目级，最高优先级）
-```
 
-### 文件格式
+`.claude` 和 `.forgeagent` 路径用于兼容已有资产；项目内推荐使用通用的 `.agents/agents`。
 
-Markdown 文件，frontmatter 定义元数据，正文为系统提示词：
+文件格式：
 
 ```markdown
 ---
-name: my-reviewer
-description: 代码审查专家，专注于安全和性能问题
+name: reviewer
+description: 代码审查，关注安全和可维护性
 allowed-tools: read_file, grep_search, glob_search
 ---
 
-你是一个代码审查专家。请仔细阅读代码，关注以下方面：
-1. 安全漏洞（SQL 注入、XSS、路径遍历等）
-2. 性能瓶颈（N+1 查询、内存泄漏等）
-3. 代码规范（命名、注释、错误处理等）
-
-返回结构化的审查报告。
+你是代码审查 Agent。请阅读相关代码，输出结构化审查结果。
 ```
 
-**frontmatter 字段**：
-- `name`（必须）：Agent 名称，用于 `agent` 工具的 `type` 参数
-- `description`（必须）：描述，展示在工具参数的 enum 中
-- `allowed-tools`（可选）：逗号分隔的允许工具列表，为空则使用 general 默认集
+字段：
 
-## agent 工具
+| 字段 | 必须 | 说明 |
+|---|---|---|
+| `name` | 是 | Agent 类型名 |
+| `description` | 是 | 展示给父 Agent 的说明 |
+| `allowed-tools` | 否 | 逗号分隔工具白名单；为空时使用 `general` 默认集 |
+
+## `agent` 工具
 
 ```json
 {
-  "name": "agent",
-  "parameters": {
-    "type": "explore | plan | verification | general | <custom-name>",
-    "prompt": "任务描述",
-    "model": "(可选) 指定子 Agent 使用的模型"
-  }
+  "description": "查找鉴权入口",
+  "prompt": "阅读路由和 middleware，说明鉴权流程",
+  "type": "explore",
+  "model": "small-model"
 }
 ```
 
 执行流程：
-1. 根据 `type` 查找内置类型或自定义 Agent 配置
-2. 如指定 `model`，通过 `Settings.for_model()` 创建独立配置
-3. 创建隔离 `Engine` 实例（独立上下文、过滤后的工具集）
-4. 子 Engine 运行直到完成
-5. 返回最终文本响应到父对话
-6. token 计数累积到父引擎
 
-## team 工具
+1. 按 `type` 找内置或自定义 Agent。
+2. 如传入 `model`，创建复用当前 endpoint 的新 Settings。
+3. 创建子 Engine。
+4. 按类型过滤工具。
+5. 运行子 Agent。
+6. 将最终文本和 token 用量回传父 Engine。
+
+## `team` 工具
 
 ```json
 {
-  "name": "team",
-  "parameters": {
-    "tasks": [
-      {"type": "explore", "prompt": "搜索所有 API 端点"},
-      {"type": "explore", "prompt": "搜索所有数据库查询"},
-      {"type": "plan", "prompt": "制定重构计划", "model": "qwen3.5-flash"}
-    ]
-  }
+  "agents": [
+    {"description": "搜索 API", "prompt": "列出所有 API 入口", "type": "explore"},
+    {"description": "搜索 DB", "prompt": "列出所有数据库访问", "type": "explore"},
+    {"description": "计划改造", "prompt": "基于发现结果制定计划", "type": "plan"}
+  ]
 }
 ```
 
-team 使用 `ThreadPoolExecutor` 并行执行多个子 Agent，所有结果汇总后返回。适合需要多角度分析的场景。
+`team` 使用线程池并行运行多个子 Agent，最多 8 个任务。适合代码审查、迁移评估、复杂问题拆分。
 
-## 工具过滤逻辑
+## 隔离边界
 
-```python
-# 内置只读类型
-READ_ONLY_TOOLS = {"read_file", "glob_search", "grep_search", "shell"}
-VERIFICATION_TOOLS = READ_ONLY_TOOLS  # 含 shell 用于测试
+每个子 Agent 都有：
 
-# general 类型：全部工具减去 "agent"（防递归）
-GENERAL_TOOLS = set(catalog().keys()) - {"agent"}
+- 独立 transcript。
+- 独立系统提示词。
+- 按类型过滤后的工具集。
+- 可选模型覆盖。
+- 单独运行记录。
 
-# 自定义 Agent：根据 allowed-tools 字段过滤
-# allowed-tools 为空 → 使用 GENERAL_TOOLS
-```
-
-## 子 Agent 隔离模型
-
-```
-父 Engine（qwen3.6-plus）
-  │
-  ├── agent(type="explore") → 子 Engine（继承父模型）
-  │     独立上下文、只读工具集
-  │     运行完成 → 文本返回父对话
-  │
-  ├── agent(type="general", model="gpt-4o") → 子 Engine（azure/gpt-4o）
-  │     独立上下文、完整工具集
-  │     自动推断 Provider 切换
-  │
-  └── team(tasks=[...]) → ThreadPoolExecutor 并行
-        子 Engine A（explore）
-        子 Engine B（plan）
-        子 Engine C（general）
-        全部完成 → 汇总返回
-```
-
-每个子 Engine 都有：
-- 独立的对话上下文（不污染父对话）
-- 过滤后的工具集（根据类型限制）
-- 独立的 token 计数（完成后累积到父）
-- 可选的独立模型/Provider 配置
+子 Agent 不会直接修改父 transcript；父 Agent 只接收最终文本结果。

@@ -62,12 +62,12 @@ class FakeMCPSession:
 
 class TestParseMCPServers:
     def test_blank_config_returns_no_servers(self):
-        from forgecc.core.mcp import parse_mcp_servers
+        from forgeagent.core.mcp import parse_mcp_servers
 
         assert parse_mcp_servers("") == ()
 
     def test_parses_named_command_server(self):
-        from forgecc.core.mcp import MCPServerConfig, parse_mcp_servers
+        from forgeagent.core.mcp import MCPServerConfig, parse_mcp_servers
 
         servers = parse_mcp_servers(
             """
@@ -91,7 +91,7 @@ class TestParseMCPServers:
         )
 
     def test_parses_mcp_servers_wrapper_object(self):
-        from forgecc.core.mcp import parse_mcp_servers
+        from forgeagent.core.mcp import parse_mcp_servers
 
         servers = parse_mcp_servers(
             """
@@ -109,13 +109,13 @@ class TestParseMCPServers:
         assert servers[0].args == ("server.js",)
 
     def test_rejects_non_string_command(self):
-        from forgecc.core.mcp import parse_mcp_servers
+        from forgeagent.core.mcp import parse_mcp_servers
 
         with pytest.raises(ValueError, match="command"):
             parse_mcp_servers('{"bad": {"command": ["uvx"]}}')
 
     def test_rejects_invalid_json(self):
-        from forgecc.core.mcp import parse_mcp_servers
+        from forgeagent.core.mcp import parse_mcp_servers
 
         with pytest.raises(ValueError, match="JSON"):
             parse_mcp_servers("{not json}")
@@ -123,8 +123,8 @@ class TestParseMCPServers:
 
 class TestMCPClient:
     def test_initialize_uses_sdk_session(self, monkeypatch):
-        from forgecc.core.mcp import MCPClient, MCPServerConfig
-        from forgecc.core.mcp import protocol as protocol_mod
+        from forgeagent.core.mcp import MCPClient, MCPServerConfig
+        from forgeagent.core.mcp import protocol as protocol_mod
 
         session = FakeMCPSession(init_result={"serverInfo": {"name": "fake"}})
         monkeypatch.setattr(protocol_mod, "ClientSession", lambda *_args: session)
@@ -137,8 +137,8 @@ class TestMCPClient:
         assert session.calls == [("initialize",)]
 
     def test_list_tools_initializes_and_returns_normalized_tools(self, monkeypatch):
-        from forgecc.core.mcp import MCPClient, MCPServerConfig, MCPTool
-        from forgecc.core.mcp import protocol as protocol_mod
+        from forgeagent.core.mcp import MCPClient, MCPServerConfig, MCPTool
+        from forgeagent.core.mcp import protocol as protocol_mod
 
         session = FakeMCPSession(tools=[{
             "name": "search_docs",
@@ -159,25 +159,25 @@ class TestMCPClient:
         assert session.calls == [("initialize",), ("list_tools",)]
 
     def test_call_tool_sends_name_and_arguments(self, monkeypatch):
-        from forgecc.core.mcp import MCPClient, MCPServerConfig
-        from forgecc.core.mcp import protocol as protocol_mod
+        from forgeagent.core.mcp import MCPClient, MCPServerConfig
+        from forgeagent.core.mcp import protocol as protocol_mod
 
         session = FakeMCPSession(call_result={"content": [{"type": "text", "text": "done"}]})
         monkeypatch.setattr(protocol_mod, "ClientSession", lambda *_args: session)
         transport = FakeSDKTransport(session)
         client = MCPClient(MCPServerConfig(name="docs", command="uvx"), transport)
 
-        result = client.call_tool("search_docs", {"query": "ForgeCC"})
+        result = client.call_tool("search_docs", {"query": "ForgeAgent"})
 
         assert result == {"content": [{"type": "text", "text": "done"}]}
         assert session.calls == [
             ("initialize",),
-            ("call_tool", "search_docs", {"query": "ForgeCC"}),
+            ("call_tool", "search_docs", {"query": "ForgeAgent"}),
         ]
 
     def test_sdk_error_raises_protocol_error(self, monkeypatch):
-        from forgecc.core.mcp import MCPClient, MCPProtocolError, MCPServerConfig
-        from forgecc.core.mcp import protocol as protocol_mod
+        from forgeagent.core.mcp import MCPClient, MCPProtocolError, MCPServerConfig
+        from forgeagent.core.mcp import protocol as protocol_mod
 
         session = FakeMCPSession(error=RuntimeError("server failed"))
         monkeypatch.setattr(protocol_mod, "ClientSession", lambda *_args: session)
@@ -189,7 +189,7 @@ class TestMCPClient:
 
 
 def test_mcp_protocol_types_are_exported_from_core_package():
-    from forgecc.core import (
+    from forgeagent.core import (
         MCPClient, MCPProtocolError, MCPTool, MCPTransport, StdioMCPTransport,
     )
 
@@ -201,11 +201,11 @@ def test_mcp_protocol_types_are_exported_from_core_package():
 
 
 def test_mcp_concerns_are_importable_from_focused_modules():
-    from forgecc.core.mcp import MCPClient, MCPServerConfig, MCPServerManager, StdioMCPTransport
-    from forgecc.core.mcp.config import MCPServerConfig as ConfigServerConfig
-    from forgecc.core.mcp.lifecycle import MCPServerManager as LifecycleManager
-    from forgecc.core.mcp.protocol import MCPClient as ProtocolClient
-    from forgecc.core.mcp.stdio import StdioMCPTransport as StdioTransport
+    from forgeagent.core.mcp import MCPClient, MCPServerConfig, MCPServerManager, StdioMCPTransport
+    from forgeagent.core.mcp.config import MCPServerConfig as ConfigServerConfig
+    from forgeagent.core.mcp.lifecycle import MCPServerManager as LifecycleManager
+    from forgeagent.core.mcp.protocol import MCPClient as ProtocolClient
+    from forgeagent.core.mcp.stdio import StdioMCPTransport as StdioTransport
 
     assert ConfigServerConfig is MCPServerConfig
     assert LifecycleManager is MCPServerManager
@@ -215,8 +215,8 @@ def test_mcp_concerns_are_importable_from_focused_modules():
 
 class TestMCPServerManager:
     def test_start_initializes_registers_and_tracks_transports(self):
-        from forgecc.core.mcp import MCPServerConfig
-        from forgecc.core.mcp.lifecycle import MCPServerManager
+        from forgeagent.core.mcp import MCPServerConfig
+        from forgeagent.core.mcp.lifecycle import MCPServerManager
 
         config = MCPServerConfig(name="docs", command="uvx")
         transport = MagicMock()
@@ -241,8 +241,8 @@ class TestMCPServerManager:
         assert manager.transports == [transport]
 
     def test_start_closes_transport_when_registration_fails(self):
-        from forgecc.core.mcp import MCPServerConfig
-        from forgecc.core.mcp.lifecycle import MCPServerManager
+        from forgeagent.core.mcp import MCPServerConfig
+        from forgeagent.core.mcp.lifecycle import MCPServerManager
 
         config = MCPServerConfig(name="docs", command="uvx")
         transport = MagicMock()
@@ -261,7 +261,7 @@ class TestMCPServerManager:
         assert manager.transports == []
 
     def test_close_releases_tracked_transports(self):
-        from forgecc.core.mcp.lifecycle import MCPServerManager
+        from forgeagent.core.mcp.lifecycle import MCPServerManager
 
         transport = MagicMock()
         manager = MCPServerManager((), register_mcp_tools=MagicMock())
@@ -275,8 +275,8 @@ class TestMCPServerManager:
 
 class TestStdioMCPTransport:
     def test_transport_uses_official_sdk_server_parameters(self, monkeypatch):
-        from forgecc.core import mcp as mcp_pkg
-        from forgecc.core.mcp import MCPServerConfig, StdioMCPTransport
+        from forgeagent.core import mcp as mcp_pkg
+        from forgeagent.core.mcp import MCPServerConfig, StdioMCPTransport
 
         captured = {}
 
@@ -311,7 +311,7 @@ class TestStdioMCPTransport:
             transport.close()
 
     def test_client_can_call_tool_through_real_sdk_stdio_process(self, tmp_path):
-        from forgecc.core.mcp import MCPClient, MCPServerConfig, StdioMCPTransport
+        from forgeagent.core.mcp import MCPClient, MCPServerConfig, StdioMCPTransport
 
         server = tmp_path / "mcp_server.py"
         server.write_text(
@@ -338,12 +338,12 @@ server.run("stdio")
         try:
             client.initialize()
             tools = client.list_tools()
-            result = client.call_tool("echo", {"text": "ForgeCC"})
+            result = client.call_tool("echo", {"text": "ForgeAgent"})
         finally:
             client.close()
             transport.close()
 
         assert tools[0].name == "echo"
-        assert result["content"] == [{"type": "text", "text": "echo: ForgeCC"}]
-        assert result["structuredContent"] == {"result": "echo: ForgeCC"}
+        assert result["content"] == [{"type": "text", "text": "echo: ForgeAgent"}]
+        assert result["structuredContent"] == {"result": "echo: ForgeAgent"}
         assert result["isError"] is False

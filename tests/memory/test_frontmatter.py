@@ -1,8 +1,8 @@
-"""Frontmatter 解析测试 — forgecc.frontmatter"""
+"""Frontmatter 解析测试 — forgeagent.frontmatter"""
 
 from __future__ import annotations
 
-from forgecc.frontmatter import parse_frontmatter, format_frontmatter
+from forgeagent.frontmatter import parse_frontmatter, format_frontmatter
 
 
 class TestParseFrontmatter:

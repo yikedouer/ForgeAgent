@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from forgecc.core.engine_loop import (
+from forgeagent.core.engine_loop import (
     build_tool_calls,
     notify_tool_callbacks,
     split_plan_tool_calls,

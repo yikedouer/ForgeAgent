@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from forgecc.frontmatter import parse_frontmatter
-from forgecc.core.subagent import _parse_allowed_tools, discover_custom_agents
+from forgeagent.frontmatter import parse_frontmatter
+from forgeagent.core.subagent import _parse_allowed_tools, discover_custom_agents
 
 
 def test_parse_frontmatter_returns_metadata_and_body() -> None:
@@ -19,8 +19,8 @@ def test_parse_allowed_tools_returns_none_for_blank_entries() -> None:
 
 def test_discover_custom_agents_project_overrides_user(tmp_path, monkeypatch) -> None:
     home = tmp_path / "home"
-    user_agents = home / ".forgecc" / "agents"
-    project_agents = tmp_path / ".forgecc" / "agents"
+    user_agents = home / ".forgeagent" / "agents"
+    project_agents = tmp_path / ".forgeagent" / "agents"
     user_agents.mkdir(parents=True)
     project_agents.mkdir(parents=True)
     (user_agents / "reviewer.md").write_text(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from forgecc.toolkit_schema import _schema_value_error
+from forgeagent.toolkit_schema import _schema_value_error
 
 
 def test_schema_value_error_validates_number_bounds() -> None:

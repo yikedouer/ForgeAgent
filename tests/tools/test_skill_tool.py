@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from forgecc.tools.skill import skill
-from forgecc.skills.playbook import invalidate_cache
+from forgeagent.tools.skill import skill
+from forgeagent.skills.playbook import invalidate_cache
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +23,7 @@ def _write_skill(
     frontmatter: str,
     body: str = "Handle $ARGUMENTS",
 ) -> None:
-    skill_dir = root / ".forgecc" / "skills" / name
+    skill_dir = root / ".forgeagent" / "skills" / name
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text(
         f"---\nname: {name}\ndescription: test skill\n{frontmatter}---\n{body}",
@@ -85,7 +85,7 @@ class TestSkillTool:
             return "forked result"
 
         monkeypatch.setattr(
-            "forgecc.core.engine.Engine.execute_sub_agent",
+            "forgeagent.core.engine.Engine.execute_sub_agent",
             staticmethod(fake_execute_sub_agent),
         )
 

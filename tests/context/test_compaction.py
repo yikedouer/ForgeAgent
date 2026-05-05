@@ -1,4 +1,4 @@
-"""压缩管道测试 — forgecc.context.compaction"""
+"""压缩管道测试 — forgeagent.context.compaction"""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from forgecc.context.compaction import (
+from forgeagent.context.compaction import (
     _estimate_tokens,
     _msg_tokens,
     _conversation_tokens,
@@ -240,7 +240,7 @@ class TestBudgetToolResults:
 # ═══════════════════════════════════════════════════════════════
 
 class TestSnip:
-    @patch("forgecc.context.tool_storage.apply_result_budget", return_value=False)
+    @patch("forgeagent.context.tool_storage.apply_result_budget", return_value=False)
     def test_old_long_tool_summarized(self, mock_budget):
         # 10 条消息，keep_recent=2 → 前 8 条视为旧消息
         # 内容需超过 200 字符且超过 3 行才会被摘要
@@ -251,7 +251,7 @@ class TestSnip:
         # 第一条被摘要
         assert "snipped" in msgs[0]["content"]
 
-    @patch("forgecc.context.tool_storage.apply_result_budget", return_value=False)
+    @patch("forgeagent.context.tool_storage.apply_result_budget", return_value=False)
     def test_recent_kept(self, mock_budget):
         lines = "\n".join([f"line{i}" for i in range(20)])
         msgs = [_tool_msg(f"c{i}", lines) for i in range(4)]
@@ -260,13 +260,13 @@ class TestSnip:
         for m in msgs:
             assert "snipped" not in m["content"]
 
-    @patch("forgecc.context.tool_storage.apply_result_budget", return_value=True)
+    @patch("forgeagent.context.tool_storage.apply_result_budget", return_value=True)
     def test_apply_budget_propagates(self, mock_budget):
         msgs = [_tool_msg("c1", "ok")]
         result = _snip(msgs, "sess")
         assert result is True  # apply_result_budget 返回 True
 
-    @patch("forgecc.context.tool_storage.apply_result_budget", return_value=False)
+    @patch("forgeagent.context.tool_storage.apply_result_budget", return_value=False)
     def test_skips_non_object_messages(self, mock_budget):
         lines = "\n".join([f"line-content-padded-{i:04d}" for i in range(20)])
         msgs = ["not-a-message", _tool_msg("c1", lines)]

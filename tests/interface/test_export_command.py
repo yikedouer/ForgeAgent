@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from forgecc.context.checkpoint import Checkpoint
-from forgecc.interface.export_command import run_export_command
+from forgeagent.context.checkpoint import Checkpoint
+from forgeagent.interface.export_command import run_export_command
 
 
 def test_run_export_command_writes_latest_checkpoint_markdown(tmp_path, monkeypatch) -> None:
@@ -11,22 +11,22 @@ def test_run_export_command_writes_latest_checkpoint_markdown(tmp_path, monkeypa
     printed: list[str] = []
 
     monkeypatch.setattr(
-        "forgecc.interface.export_command.ckpt.latest_checkpoint",
+        "forgeagent.interface.export_command.ckpt.latest_checkpoint",
         lambda: "latest_session",
     )
     monkeypatch.setattr(
-        "forgecc.interface.export_command.ckpt.load",
+        "forgeagent.interface.export_command.ckpt.load",
         lambda session_id: Checkpoint(
             session_id=session_id,
             messages=[
                 {"role": "user", "content": "offline export"},
                 {"role": "assistant", "content": "ready"},
             ],
-            model="qwen3.6-plus",
+            model="base-model",
         ),
     )
     monkeypatch.setattr(
-        "forgecc.interface.export_command.console.print",
+        "forgeagent.interface.export_command.console.print",
         lambda *args, **kwargs: printed.append(args[0] if args else ""),
     )
 
@@ -44,19 +44,19 @@ def test_run_export_command_can_emit_json_output(tmp_path, monkeypatch) -> None:
     printed: list[str] = []
 
     monkeypatch.setattr(
-        "forgecc.interface.export_command.ckpt.latest_checkpoint",
+        "forgeagent.interface.export_command.ckpt.latest_checkpoint",
         lambda: "latest_session",
     )
     monkeypatch.setattr(
-        "forgecc.interface.export_command.ckpt.load",
+        "forgeagent.interface.export_command.ckpt.load",
         lambda session_id: Checkpoint(
             session_id=session_id,
             messages=[{"role": "user", "content": "export json"}],
-            model="qwen3.6-plus",
+            model="base-model",
         ),
     )
     monkeypatch.setattr(
-        "forgecc.interface.export_command.console.print",
+        "forgeagent.interface.export_command.console.print",
         lambda *args, **kwargs: printed.append(args[0] if args else ""),
     )
 
@@ -84,11 +84,11 @@ def test_run_export_command_can_write_jsonl_event_stream(tmp_path, monkeypatch) 
     ]
 
     monkeypatch.setattr(
-        "forgecc.interface.export_command.ckpt.latest_checkpoint",
+        "forgeagent.interface.export_command.ckpt.latest_checkpoint",
         lambda: "latest_session",
     )
     monkeypatch.setattr(
-        "forgecc.interface.export_command.ckpt.load_events",
+        "forgeagent.interface.export_command.ckpt.load_events",
         lambda session_id: events,
     )
 

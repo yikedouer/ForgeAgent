@@ -1,4 +1,4 @@
-from forgecc.toolkit_schema import arg_type_error
+from forgeagent.toolkit_schema import arg_type_error
 
 
 def test_arg_type_error_accepts_valid_object_args() -> None:

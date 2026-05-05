@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from forgecc.core.subagent_runtime import (
+from forgeagent.core.subagent_runtime import (
     AgentRunRecord,
     begin_agent_run_record,
     finish_agent_run_record,
@@ -21,7 +21,7 @@ def test_begin_agent_run_record_creates_named_run():
         agent_id="agent-1",
         description="Review Code!",
         subagent_type="review",
-        model="qwen3.6-plus",
+        model="base-model",
         prompt="inspect",
         create=create,
     )
@@ -31,7 +31,7 @@ def test_begin_agent_run_record_creates_named_run():
     assert captured["name"] == "review-code!"
     assert captured["description"] == "Review Code!"
     assert captured["subagent_type"] == "review"
-    assert captured["model"] == "qwen3.6-plus"
+    assert captured["model"] == "base-model"
     assert captured["prompt"] == "inspect"
 
 
@@ -46,7 +46,7 @@ def test_begin_agent_run_record_returns_none_when_create_fails():
         agent_id="agent-1",
         description="Review Code!",
         subagent_type="review",
-        model="qwen3.6-plus",
+        model="base-model",
         prompt="inspect",
         create=create,
         warn=warnings.append,

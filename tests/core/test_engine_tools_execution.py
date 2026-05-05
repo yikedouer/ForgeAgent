@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from forgecc.core.engine_loop import execute_normal_tool_calls
-from forgecc.toolkit import ToolResult
+from forgeagent.core.engine_loop import execute_normal_tool_calls
+from forgeagent.toolkit import ToolResult
 
 
 def test_execute_normal_tool_calls_logs_runs_persists_and_appends_messages():

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from forgecc.core.errors import (
+from forgeagent.core.errors import (
     ForgeError,
     ProviderError,
     ContextWindowError,

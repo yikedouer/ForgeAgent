@@ -1,37 +1,64 @@
-"""Provider preset resolution tests."""
+"""OpenAI-compatible provider resolution tests."""
 
 from __future__ import annotations
 
-from forgecc.core.settings import _infer_provider, _resolve_provider
+from forgeagent.core.settings import _resolve_provider
 
 
-def test_infer_provider_defaults_unknown_models_to_qwen() -> None:
-    assert _infer_provider("unknown-model") == "qwen"
+def test_resolve_provider_uses_openai_compatible_defaults() -> None:
+    api_key, base_url, model, client_type, api_version = _resolve_provider({})
 
-
-def test_resolve_provider_uses_deepseek_preset_from_model_prefix() -> None:
-    api_key, base_url, model, client_type, api_version = _resolve_provider({
-        "DEEPSEEK_API_KEY": " sk-ds ",
-        "FORGECC_MODEL": " deepseek-chat ",
-    })
-
-    assert api_key == "sk-ds"
-    assert base_url == "https://api.deepseek.com"
-    assert model == "deepseek-chat"
+    assert api_key == ""
+    assert base_url == "https://api.openai.com/v1"
+    assert model == "gpt-4o"
     assert client_type == "openai"
     assert api_version == ""
 
 
-def test_resolve_provider_uses_azure_endpoint_and_api_version() -> None:
+def test_resolve_provider_uses_generic_openai_compatible_env() -> None:
     api_key, base_url, model, client_type, api_version = _resolve_provider({
-        "FORGECC_PROVIDER": "azure",
-        "AZURE_API_KEY": "sk-az",
-        "AZURE_ENDPOINT": " https://azure.example ",
-        "AZURE_API_VERSION": " 2024-12-01-preview ",
+        "OPENAI_API_KEY": " sk-test ",
+        "OPENAI_BASE_URL": " https://proxy.example/v1 ",
+        "MODEL": " custom-model ",
     })
 
-    assert api_key == "sk-az"
-    assert base_url == "https://azure.example"
-    assert model == "gpt-4.1-0414"
-    assert client_type == "azure"
-    assert api_version == "2024-12-01-preview"
+    assert api_key == "sk-test"
+    assert base_url == "https://proxy.example/v1"
+    assert model == "custom-model"
+    assert client_type == "openai"
+    assert api_version == ""
+
+
+def test_resolve_provider_keeps_legacy_model_fallback() -> None:
+    api_key, base_url, model, client_type, api_version = _resolve_provider({
+        "FORGEAGENT_MODEL": " legacy-model ",
+    })
+
+    assert api_key == ""
+    assert base_url == "https://api.openai.com/v1"
+    assert model == "legacy-model"
+    assert client_type == "openai"
+    assert api_version == ""
+
+
+def test_resolve_provider_prefers_model_over_legacy_name() -> None:
+    _, _, model, _, _ = _resolve_provider({
+        "MODEL": "standard-model",
+        "FORGEAGENT_MODEL": "legacy-model",
+    })
+
+    assert model == "standard-model"
+
+
+def test_resolve_provider_ignores_unrelated_provider_specific_keys() -> None:
+    api_key, base_url, model, client_type, api_version = _resolve_provider({
+        "CUSTOM_PROVIDER": "legacy",
+        "CUSTOM_API_KEY": "sk-custom",
+        "MODEL": "custom-model",
+    })
+
+    assert api_key == ""
+    assert base_url == "https://api.openai.com/v1"
+    assert model == "custom-model"
+    assert client_type == "openai"
+    assert api_version == ""

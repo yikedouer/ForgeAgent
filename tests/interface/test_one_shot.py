@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock
 
-from forgecc.interface.one_shot import run_prompt_once
+from forgeagent.interface.one_shot import run_prompt_once
 
 
 def test_run_prompt_once_emits_json_response_and_closes_engine() -> None:
     engine = MagicMock()
     engine.run.return_value = "done"
-    engine.settings.model = "qwen3.6-plus"
+    engine.settings.model = "base-model"
     engine.session_id = "s-json"
     engine.provider.tokens_used = (0, 0)
     engine._total_input_tokens = 12
@@ -30,7 +30,7 @@ def test_run_prompt_once_emits_json_response_and_closes_engine() -> None:
     assert parsed == {
         "kind": "response",
         "message": "done",
-        "model": "qwen3.6-plus",
+        "model": "base-model",
         "session_id": "s-json",
         "usage": {"input_tokens": 12, "output_tokens": 34},
     }

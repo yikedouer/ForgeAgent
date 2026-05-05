@@ -1,4 +1,4 @@
-"""异步预取测试 — forgecc.memory.prefetch"""
+"""异步预取测试 — forgeagent.memory.prefetch"""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from forgecc.memory.prefetch import (
+from forgeagent.memory.prefetch import (
     is_query_substantial,
     start_memory_prefetch,
     MemoryPrefetch,
 )
-from forgecc.memory.recall import MAX_SESSION_MEMORY_BYTES
+from forgeagent.memory.recall import MAX_SESSION_MEMORY_BYTES
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -71,7 +71,7 @@ class TestStartMemoryPrefetch:
             raise AssertionError("get_memory_dir should not be called")
 
         monkeypatch.setattr(
-            "forgecc.memory.prefetch.get_memory_dir",
+            "forgeagent.memory.prefetch.get_memory_dir",
             fail_get_memory_dir,
         )
 
@@ -87,7 +87,7 @@ class TestStartMemoryPrefetch:
             raise AssertionError("get_memory_dir should not be called")
 
         monkeypatch.setattr(
-            "forgecc.memory.prefetch.get_memory_dir",
+            "forgeagent.memory.prefetch.get_memory_dir",
             fail_get_memory_dir,
         )
 

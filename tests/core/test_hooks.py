@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from forgecc.core.hooks import clear_hooks, emit_hook, load_hook_file, register_hook
+from forgeagent.core.hooks import clear_hooks, emit_hook, load_hook_file, register_hook
 
 
 def test_emit_hook_calls_registered_handlers_in_order():

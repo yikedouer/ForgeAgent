@@ -7,11 +7,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# Keep tests hermetic even when the real user-level ForgeCC directory is not writable.
-os.environ.setdefault("FORGECC_LOG_FILE", "/private/tmp/forgecc-test.log")
+# Keep tests hermetic even when the real user-level ForgeAgent directory is not writable.
+os.environ.setdefault("FORGEAGENT_LOG_FILE", "/private/tmp/forgeagent-test.log")
 
-from forgecc.toolkit import _CATALOG, _enforcer
-from forgecc.core.settings import Settings
+from forgeagent.toolkit import _CATALOG, _enforcer
+from forgeagent.core.settings import Settings
 
 
 # ── 用户级状态目录隔离 ─────────────────────────────────────
@@ -19,8 +19,8 @@ from forgecc.core.settings import Settings
 @pytest.fixture(autouse=True)
 def isolated_session_dir(tmp_path, monkeypatch):
     """将会话检查点和工具结果隔离到测试临时目录。"""
-    monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path / "sessions"))
-    monkeypatch.setenv("FORGECC_PLANS_DIR", str(tmp_path / "plans"))
+    monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path / "sessions"))
+    monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path / "plans"))
 
 
 # ── 工具目录隔离 ──────────────────────────────────────────
@@ -28,7 +28,7 @@ def isolated_session_dir(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def clean_catalog():
     """每个测试前保存并清空工具目录，测试后还原。"""
-    import forgecc.toolkit as tk
+    import forgeagent.toolkit as tk
     saved_catalog = dict(tk._CATALOG)
     saved_enforcer = tk._enforcer
     tk._CATALOG.clear()
@@ -80,8 +80,8 @@ def mock_provider():
 
 @pytest.fixture
 def tmp_memory_dir(tmp_path, monkeypatch):
-    """设置 FORGECC_MEMORY_DIR 到临时目录。"""
+    """设置 FORGEAGENT_MEMORY_DIR 到临时目录。"""
     mem_dir = tmp_path / "memory"
     mem_dir.mkdir()
-    monkeypatch.setenv("FORGECC_MEMORY_DIR", str(mem_dir))
+    monkeypatch.setenv("FORGEAGENT_MEMORY_DIR", str(mem_dir))
     return mem_dir

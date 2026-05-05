@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import forgecc.core.log as flog
+import forgeagent.core.log as flog
 
 
 def _reset_logging_state() -> None:
-    root = logging.getLogger("forgecc")
+    root = logging.getLogger("forgeagent")
     for handler in list(root.handlers):
         root.removeHandler(handler)
         handler.close()
@@ -19,12 +19,12 @@ def _reset_logging_state() -> None:
 class TestLogSetup:
     def test_invalid_log_file_does_not_block_logger(self, tmp_path, monkeypatch):
         _reset_logging_state()
-        monkeypatch.setenv("FORGECC_LOG_FILE", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_LOG_FILE", str(tmp_path))
 
-        logger = flog.get_logger("forgecc.test")
+        logger = flog.get_logger("forgeagent.test")
 
-        assert logger.name == "forgecc.test"
-        assert logging.getLogger("forgecc").handlers
+        assert logger.name == "forgeagent.test"
+        assert logging.getLogger("forgeagent").handlers
         _reset_logging_state()
 
     def test_log_file_expands_user_home(self, tmp_path, monkeypatch):
@@ -34,24 +34,24 @@ class TestLogSetup:
         home.mkdir()
         cwd.mkdir()
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("FORGECC_LOG_FILE", "~/logs/forgecc.log")
+        monkeypatch.setenv("FORGEAGENT_LOG_FILE", "~/logs/forgeagent.log")
         monkeypatch.chdir(cwd)
 
-        flog.get_logger("forgecc.test").info("hello")
+        flog.get_logger("forgeagent.test").info("hello")
 
-        assert (home / "logs" / "forgecc.log").exists()
-        assert not (cwd / "~" / "logs" / "forgecc.log").exists()
+        assert (home / "logs" / "forgeagent.log").exists()
+        assert not (cwd / "~" / "logs" / "forgeagent.log").exists()
         _reset_logging_state()
 
     def test_log_file_trims_whitespace(self, tmp_path, monkeypatch):
         _reset_logging_state()
-        log_file = tmp_path / "forgecc.log"
-        monkeypatch.setenv("FORGECC_LOG_FILE", f" {log_file} ")
+        log_file = tmp_path / "forgeagent.log"
+        monkeypatch.setenv("FORGEAGENT_LOG_FILE", f" {log_file} ")
 
-        flog.get_logger("forgecc.test").info("hello")
+        flog.get_logger("forgeagent.test").info("hello")
 
         assert log_file.exists()
-        assert not (tmp_path / "forgecc.log ").exists()
+        assert not (tmp_path / "forgeagent.log ").exists()
         _reset_logging_state()
 
     def test_blank_log_file_uses_default_path(self, tmp_path, monkeypatch):
@@ -61,21 +61,21 @@ class TestLogSetup:
         home.mkdir()
         cwd.mkdir()
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("FORGECC_LOG_FILE", "   ")
+        monkeypatch.setenv("FORGEAGENT_LOG_FILE", "   ")
         monkeypatch.chdir(cwd)
 
-        flog.get_logger("forgecc.test").info("hello")
+        flog.get_logger("forgeagent.test").info("hello")
 
-        assert (home / ".forgecc" / "logs" / "forgecc.log").exists()
-        assert not (cwd / "forgecc.log").exists()
+        assert (home / ".forgeagent" / "logs" / "forgeagent.log").exists()
+        assert not (cwd / "forgeagent.log").exists()
         _reset_logging_state()
 
     def test_log_level_trims_whitespace(self, tmp_path, monkeypatch):
         _reset_logging_state()
-        monkeypatch.setenv("FORGECC_LOG_FILE", str(tmp_path / "forgecc.log"))
-        monkeypatch.setenv("FORGECC_LOG_LEVEL", " INFO ")
+        monkeypatch.setenv("FORGEAGENT_LOG_FILE", str(tmp_path / "forgeagent.log"))
+        monkeypatch.setenv("FORGEAGENT_LOG_LEVEL", " INFO ")
 
-        flog.get_logger("forgecc.test")
+        flog.get_logger("forgeagent.test")
 
-        assert logging.getLogger("forgecc").level == logging.INFO
+        assert logging.getLogger("forgeagent").level == logging.INFO
         _reset_logging_state()

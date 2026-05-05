@@ -8,11 +8,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from forgecc.core.settings import Settings
-from forgecc.context.checkpoint import Checkpoint
-from forgecc.interface import directive as directive_mod
-from forgecc.interface.repl import ForgeREPL, main, _on_tool
-from forgecc.skills.playbook import invalidate_cache
+from forgeagent.core.settings import Settings
+from forgeagent.context.checkpoint import Checkpoint
+from forgeagent.interface import directive as directive_mod
+from forgeagent.interface.repl import ForgeREPL, main, _on_tool
+from forgeagent.skills.playbook import invalidate_cache
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +28,7 @@ def _write_skill(
     frontmatter: str,
     body: str = "Do $ARGUMENTS",
 ) -> None:
-    skill_dir = root / ".forgecc" / "skills" / name
+    skill_dir = root / ".forgeagent" / "skills" / name
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text(
         f"---\nname: {name}\ndescription: test skill\n{frontmatter}---\n{body}",
@@ -57,9 +57,9 @@ class TestReplSkillInvocation:
         repl = ForgeREPL(engine)
         repl.do_model = MagicMock()
 
-        repl.default("/model qwen3.5-flash")
+        repl.default("/model small-model")
 
-        repl.do_model.assert_called_once_with("qwen3.5-flash")
+        repl.do_model.assert_called_once_with("small-model")
         engine.run.assert_not_called()
 
     def test_slash_builtin_command_trims_leading_whitespace(self):
@@ -67,9 +67,9 @@ class TestReplSkillInvocation:
         repl = ForgeREPL(engine)
         repl.do_model = MagicMock()
 
-        repl.default("/ model qwen3.5-flash")
+        repl.default("/ model small-model")
 
-        repl.do_model.assert_called_once_with("qwen3.5-flash")
+        repl.do_model.assert_called_once_with("small-model")
         engine.run.assert_not_called()
 
     def test_empty_slash_command_does_not_crash(self):
@@ -161,7 +161,7 @@ class TestReplSkillInvocation:
             return "fork result"
 
         monkeypatch.setattr(
-            "forgecc.core.engine.Engine.execute_sub_agent",
+            "forgeagent.core.engine.Engine.execute_sub_agent",
             staticmethod(fake_execute_sub_agent),
         )
 
@@ -182,7 +182,7 @@ class TestToolCallback:
         printed = []
 
         monkeypatch.setattr(
-            "forgecc.interface.repl.console.print",
+            "forgeagent.interface.repl.console.print",
             lambda *args, **kwargs: printed.append(args[0]),
         )
 
@@ -195,9 +195,9 @@ class TestToolCallback:
 class TestReplModelCommand:
     def test_model_switch_delegates_to_engine(self, monkeypatch):
         settings = Settings(
-            api_key="sk-qwen",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            api_key="sk-test",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -208,11 +208,11 @@ class TestReplModelCommand:
         engine.provider = MagicMock()
 
         def fake_switch_model(model):
-            assert model == "deepseek-chat"
+            assert model == "custom-model"
             engine.settings = settings.replace(
-                api_key="sk-deepseek",
-                base_url="https://api.deepseek.com",
-                model="deepseek-chat",
+                api_key="sk-alt",
+                base_url="https://other.example/v1",
+                model="custom-model",
             )
             engine.provider.settings = engine.settings
             return engine.settings
@@ -221,12 +221,12 @@ class TestReplModelCommand:
 
         repl = ForgeREPL(engine)
 
-        repl.do_model("deepseek-chat")
+        repl.do_model("custom-model")
 
-        engine.switch_model.assert_called_once_with("deepseek-chat")
-        assert engine.settings.model == "deepseek-chat"
-        assert engine.settings.api_key == "sk-deepseek"
-        assert engine.settings.base_url == "https://api.deepseek.com"
+        engine.switch_model.assert_called_once_with("custom-model")
+        assert engine.settings.model == "custom-model"
+        assert engine.settings.api_key == "sk-alt"
+        assert engine.settings.base_url == "https://other.example/v1"
         assert engine.provider.settings is engine.settings
 
 
@@ -243,7 +243,7 @@ class TestReplExportCommand:
         output = tmp_path / "conversation.md"
         printed = []
         monkeypatch.setattr(
-            "forgecc.interface.repl.console.print",
+            "forgeagent.interface.repl.console.print",
             lambda *args, **kwargs: printed.append(args[0] if args else ""),
         )
 
@@ -269,38 +269,38 @@ class TestCliOverrides:
         output = tmp_path / "latest.md"
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "export", str(output)],
+            ["forgeagent", "export", str(output)],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.latest_checkpoint",
+            "forgeagent.interface.repl.ckpt.latest_checkpoint",
             lambda: "latest_session",
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.load",
+            "forgeagent.interface.repl.ckpt.load",
             lambda session_id: Checkpoint(
                 session_id=session_id,
                 messages=[
                     {"role": "user", "content": "offline export"},
                     {"role": "assistant", "content": "ready"},
                 ],
-                model="qwen3.6-plus",
+                model="base-model",
             ),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: pytest.fail("Settings should not be resolved for export"),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Provider",
+            "forgeagent.interface.repl.Provider",
             lambda settings: pytest.fail("Provider should not be constructed"),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Engine",
+            "forgeagent.interface.repl.Engine",
             lambda settings, provider: pytest.fail("Engine should not be constructed"),
         )
         printed = []
         monkeypatch.setattr(
-            "forgecc.interface.repl.console.print",
+            "forgeagent.interface.repl.console.print",
             lambda *args, **kwargs: printed.append(args[0] if args else ""),
         )
 
@@ -318,27 +318,27 @@ class TestCliOverrides:
         output = tmp_path / "latest.md"
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "--output-format", "json", "export", str(output)],
+            ["forgeagent", "--output-format", "json", "export", str(output)],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.latest_checkpoint",
+            "forgeagent.interface.repl.ckpt.latest_checkpoint",
             lambda: "latest_session",
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.load",
+            "forgeagent.interface.repl.ckpt.load",
             lambda session_id: Checkpoint(
                 session_id=session_id,
                 messages=[{"role": "user", "content": "export json"}],
-                model="qwen3.6-plus",
+                model="base-model",
             ),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: pytest.fail("Settings should not be resolved for export"),
         )
         printed = []
         monkeypatch.setattr(
-            "forgecc.interface.repl.console.print",
+            "forgeagent.interface.repl.console.print",
             lambda *args, **kwargs: printed.append(args[0] if args else ""),
         )
 
@@ -368,18 +368,18 @@ class TestCliOverrides:
         ]
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "--output-format", "jsonl", "export", str(output)],
+            ["forgeagent", "--output-format", "jsonl", "export", str(output)],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.latest_checkpoint",
+            "forgeagent.interface.repl.ckpt.latest_checkpoint",
             lambda: "latest_session",
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.load_events",
+            "forgeagent.interface.repl.ckpt.load_events",
             lambda session_id: events,
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: pytest.fail("Settings should not be resolved for export"),
         )
 
@@ -391,8 +391,8 @@ class TestCliOverrides:
     def test_prompt_can_emit_json_output(self, monkeypatch):
         base_settings = Settings(
             api_key="sk-env",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -400,16 +400,16 @@ class TestCliOverrides:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "--output-format", "json", "-p", "hello"],
+            ["forgeagent", "--output-format", "json", "-p", "hello"],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
 
         printed = []
         monkeypatch.setattr(
-            "forgecc.interface.repl.console.print",
+            "forgeagent.interface.repl.console.print",
             lambda *args, **kwargs: printed.append(args[0] if args else ""),
         )
 
@@ -434,8 +434,8 @@ class TestCliOverrides:
                 assert on_tool is None
                 return "done"
 
-        monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
-        monkeypatch.setattr("forgecc.interface.repl.Engine", FakeEngine)
+        monkeypatch.setattr("forgeagent.interface.repl.Provider", FakeProvider)
+        monkeypatch.setattr("forgeagent.interface.repl.Engine", FakeEngine)
 
         main()
 
@@ -443,7 +443,7 @@ class TestCliOverrides:
         assert parsed == {
             "kind": "response",
             "message": "done",
-            "model": "qwen3.6-plus",
+            "model": "base-model",
             "session_id": "s-json",
             "usage": {"input_tokens": 12, "output_tokens": 34},
         }
@@ -453,8 +453,8 @@ class TestCliOverrides:
     ):
         base_settings = Settings(
             api_key="sk-env",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -462,22 +462,22 @@ class TestCliOverrides:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "-r", "   ", "-p", "hello"],
+            ["forgeagent", "-r", "   ", "-p", "hello"],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.load",
+            "forgeagent.interface.repl.ckpt.load",
             lambda session_id: pytest.fail("checkpoint should not be loaded"),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Provider",
+            "forgeagent.interface.repl.Provider",
             lambda settings: pytest.fail("Provider should not be constructed"),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Engine",
+            "forgeagent.interface.repl.Engine",
             lambda settings, provider: pytest.fail("Engine should not be constructed"),
         )
 
@@ -491,8 +491,8 @@ class TestCliOverrides:
     ):
         base_settings = Settings(
             api_key="sk-env",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -500,23 +500,23 @@ class TestCliOverrides:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "-r", "latest", "-p", "hello"],
+            ["forgeagent", "-r", "latest", "-p", "hello"],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.latest_checkpoint",
+            "forgeagent.interface.repl.ckpt.latest_checkpoint",
             lambda: "newer",
             raising=False,
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.load",
+            "forgeagent.interface.repl.ckpt.load",
             lambda session_id: Checkpoint(
                 session_id=session_id,
                 messages=[],
-                model="qwen3.6-plus",
+                model="base-model",
             ),
         )
 
@@ -540,8 +540,8 @@ class TestCliOverrides:
                 built["prompt"] = prompt
                 return "done"
 
-        monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
-        monkeypatch.setattr("forgecc.interface.repl.Engine", FakeEngine)
+        monkeypatch.setattr("forgeagent.interface.repl.Provider", FakeProvider)
+        monkeypatch.setattr("forgeagent.interface.repl.Engine", FakeEngine)
 
         main()
 
@@ -552,16 +552,16 @@ class TestCliOverrides:
     def test_prompt_mode_closes_engine_before_returning(self, monkeypatch):
         base_settings = Settings(
             api_key="sk-env",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
             permission_mode="prompt",
         )
-        monkeypatch.setattr("sys.argv", ["forgecc", "-p", "hello"])
+        monkeypatch.setattr("sys.argv", ["forgeagent", "-p", "hello"])
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
 
@@ -583,20 +583,20 @@ class TestCliOverrides:
             def run(self, prompt, on_token=None, on_tool=None):
                 return "done"
 
-        monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
-        monkeypatch.setattr("forgecc.interface.repl.Engine", FakeEngine)
+        monkeypatch.setattr("forgeagent.interface.repl.Provider", FakeProvider)
+        monkeypatch.setattr("forgeagent.interface.repl.Engine", FakeEngine)
 
         main()
 
         built["engine"].close.assert_called_once_with()
 
-    def test_resume_arg_reinfers_saved_model_before_api_key_check(
+    def test_resume_arg_uses_saved_model_before_api_key_check(
         self, monkeypatch,
     ):
         base_settings = Settings(
-            api_key="",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            api_key="sk-test",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -604,22 +604,22 @@ class TestCliOverrides:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "-r", "saved", "-p", "hello"],
+            ["forgeagent", "-r", "saved", "-p", "hello"],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-deepseek"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-other"},
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.load",
+            "forgeagent.interface.repl.ckpt.load",
             lambda session_id: Checkpoint(
                 session_id=session_id,
                 messages=[],
-                model="deepseek-chat",
+                model="custom-model",
             ),
         )
 
@@ -645,15 +645,15 @@ class TestCliOverrides:
                 built["prompt"] = prompt
                 return "done"
 
-        monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
-        monkeypatch.setattr("forgecc.interface.repl.Engine", FakeEngine)
+        monkeypatch.setattr("forgeagent.interface.repl.Provider", FakeProvider)
+        monkeypatch.setattr("forgeagent.interface.repl.Engine", FakeEngine)
 
         main()
 
         settings = built["engine_settings"]
-        assert settings.model == "deepseek-chat"
-        assert settings.api_key == "sk-deepseek"
-        assert settings.base_url == "https://api.deepseek.com"
+        assert settings.model == "custom-model"
+        assert settings.api_key == "sk-test"
+        assert settings.base_url == "https://proxy.example/v1"
         assert built["provider_settings"] is settings
         assert built["restored"] == "saved"
         assert built["restore_model"] is False
@@ -694,13 +694,48 @@ class TestDirectiveBuild:
         assert "Git branch: feature/workspace" in result
         assert calls
 
+    def test_project_rules_prefers_generic_agents_file(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        (workspace / "AGENTS.md").write_text("Use project conventions.", encoding="utf-8")
+
+        result = directive_mod._project_rules(str(workspace))
+
+        assert "# Project Instructions" in result
+        assert "## AGENTS.md" in result
+        assert "Use project conventions." in result
+
+    def test_git_context_includes_status_and_diff(self, tmp_path, monkeypatch):
+        workspace = str(tmp_path)
+
+        def fake_check_output(args, **kwargs):
+            command = args[1:]
+            if command[:3] == ["--no-optional-locks", "status", "--short"]:
+                return "## main\n M app.py\n"
+            if command == ["diff", "--cached"]:
+                return ""
+            if command == ["diff"]:
+                return "diff --git a/app.py b/app.py\n"
+            if command == ["log", "-5", "--oneline"]:
+                return "abc123 init\n"
+            return ""
+
+        monkeypatch.setattr(directive_mod.subprocess, "check_output", fake_check_output)
+
+        result = directive_mod._git_context(workspace)
+
+        assert "# Project Snapshot" in result
+        assert "## Git Status" in result
+        assert "## Recent Commits" in result
+        assert "## Git Diff Snapshot" in result
+
     def test_resume_preserves_explicit_endpoint_overrides(
         self, monkeypatch,
     ):
         base_settings = Settings(
             api_key="",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -709,7 +744,7 @@ class TestDirectiveBuild:
         monkeypatch.setattr(
             "sys.argv",
             [
-                "forgecc",
+                "forgeagent",
                 "-r", "saved",
                 "--base-url", "https://proxy.example/v1",
                 "--api-key", "sk-proxy",
@@ -717,19 +752,19 @@ class TestDirectiveBuild:
             ],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
+            "forgeagent.core.settings._load_env_cascade",
             lambda: {},
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.ckpt.load",
+            "forgeagent.interface.repl.ckpt.load",
             lambda session_id: Checkpoint(
                 session_id=session_id,
                 messages=[],
-                model="deepseek-chat",
+                model="custom-model",
             ),
         )
 
@@ -755,13 +790,13 @@ class TestDirectiveBuild:
                 built["prompt"] = prompt
                 return "done"
 
-        monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
-        monkeypatch.setattr("forgecc.interface.repl.Engine", FakeEngine)
+        monkeypatch.setattr("forgeagent.interface.repl.Provider", FakeProvider)
+        monkeypatch.setattr("forgeagent.interface.repl.Engine", FakeEngine)
 
         main()
 
         settings = built["engine_settings"]
-        assert settings.model == "deepseek-chat"
+        assert settings.model == "custom-model"
         assert settings.api_key == "sk-proxy"
         assert settings.base_url == "https://proxy.example/v1"
         assert settings.client_type == "openai"
@@ -771,13 +806,13 @@ class TestDirectiveBuild:
         assert built["restore_model"] is False
         assert built["prompt"] == "hello"
 
-    def test_model_arg_reinfers_provider_before_building_engine(
+    def test_model_arg_switches_model_before_building_engine(
         self, monkeypatch,
     ):
         base_settings = Settings(
-            api_key="sk-qwen",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            api_key="sk-test",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -785,15 +820,15 @@ class TestDirectiveBuild:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "-m", "deepseek-chat", "-p", "hello"],
+            ["forgeagent", "-m", "custom-model", "-p", "hello"],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"DEEPSEEK_API_KEY": "sk-deepseek"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-other"},
         )
 
         built = {}
@@ -814,23 +849,23 @@ class TestDirectiveBuild:
                 built["prompt"] = prompt
                 return "done"
 
-        monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
-        monkeypatch.setattr("forgecc.interface.repl.Engine", FakeEngine)
+        monkeypatch.setattr("forgeagent.interface.repl.Provider", FakeProvider)
+        monkeypatch.setattr("forgeagent.interface.repl.Engine", FakeEngine)
 
         main()
 
         settings = built["engine_settings"]
-        assert settings.model == "deepseek-chat"
-        assert settings.api_key == "sk-deepseek"
-        assert settings.base_url == "https://api.deepseek.com"
+        assert settings.model == "custom-model"
+        assert settings.api_key == "sk-test"
+        assert settings.base_url == "https://proxy.example/v1"
         assert built["provider_settings"] is settings
         assert built["prompt"] == "hello"
 
     def test_blank_model_arg_is_rejected(self, monkeypatch):
         base_settings = Settings(
-            api_key="sk-qwen",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            api_key="sk-test",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -838,18 +873,18 @@ class TestDirectiveBuild:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "-m", "   ", "-p", "hello"],
+            ["forgeagent", "-m", "   ", "-p", "hello"],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Provider",
+            "forgeagent.interface.repl.Provider",
             lambda settings: pytest.fail("Provider should not be constructed"),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Engine",
+            "forgeagent.interface.repl.Engine",
             lambda settings, provider: pytest.fail("Engine should not be constructed"),
         )
 
@@ -861,8 +896,8 @@ class TestDirectiveBuild:
     def test_blank_api_key_arg_is_rejected(self, monkeypatch):
         base_settings = Settings(
             api_key="sk-env",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -870,18 +905,18 @@ class TestDirectiveBuild:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "--api-key", "   ", "-p", "hello"],
+            ["forgeagent", "--api-key", "   ", "-p", "hello"],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Provider",
+            "forgeagent.interface.repl.Provider",
             lambda settings: pytest.fail("Provider should not be constructed"),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Engine",
+            "forgeagent.interface.repl.Engine",
             lambda settings, provider: pytest.fail("Engine should not be constructed"),
         )
 
@@ -893,8 +928,8 @@ class TestDirectiveBuild:
     def test_blank_base_url_arg_is_rejected(self, monkeypatch):
         base_settings = Settings(
             api_key="sk-env",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -902,18 +937,18 @@ class TestDirectiveBuild:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "--base-url", "   ", "-p", "hello"],
+            ["forgeagent", "--base-url", "   ", "-p", "hello"],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Provider",
+            "forgeagent.interface.repl.Provider",
             lambda settings: pytest.fail("Provider should not be constructed"),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Engine",
+            "forgeagent.interface.repl.Engine",
             lambda settings, provider: pytest.fail("Engine should not be constructed"),
         )
 
@@ -925,8 +960,8 @@ class TestDirectiveBuild:
     def test_blank_prompt_arg_is_rejected(self, monkeypatch):
         base_settings = Settings(
             api_key="sk-env",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model="qwen3.6-plus",
+            base_url="https://proxy.example/v1",
+            model="base-model",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
@@ -934,18 +969,18 @@ class TestDirectiveBuild:
         )
         monkeypatch.setattr(
             "sys.argv",
-            ["forgecc", "-p", "   "],
+            ["forgeagent", "-p", "   "],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Provider",
+            "forgeagent.interface.repl.Provider",
             lambda settings: pytest.fail("Provider should not be constructed"),
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Engine",
+            "forgeagent.interface.repl.Engine",
             lambda settings, provider: pytest.fail("Engine should not be constructed"),
         )
 
@@ -958,20 +993,20 @@ class TestDirectiveBuild:
         self, monkeypatch,
     ):
         base_settings = Settings(
-            api_key="sk-azure",
-            base_url="https://iai.alibaba-inc.com/azure",
+            api_key="sk-test",
+            base_url="https://proxy.example/v1",
             model="gpt-4.1-0414",
             context_budget=128000,
             max_rounds=60,
             workspace="/tmp/work",
             permission_mode="prompt",
-            client_type="azure",
-            api_version="2024-12-01-preview",
+            client_type="legacy",
+            api_version="legacy-version",
         )
         monkeypatch.setattr(
             "sys.argv",
             [
-                "forgecc",
+                "forgeagent",
                 "-m", "gpt-4o",
                 "--base-url", "https://api.openai.com/v1",
                 "--api-key", "sk-openai",
@@ -979,12 +1014,12 @@ class TestDirectiveBuild:
             ],
         )
         monkeypatch.setattr(
-            "forgecc.interface.repl.Settings.resolve",
+            "forgeagent.interface.repl.Settings.resolve",
             lambda: base_settings,
         )
         monkeypatch.setattr(
-            "forgecc.core.settings._load_env_cascade",
-            lambda: {"AZURE_API_KEY": "sk-azure"},
+            "forgeagent.core.settings._load_env_cascade",
+            lambda: {"OPENAI_API_KEY": "sk-test"},
         )
 
         built = {}
@@ -1001,8 +1036,8 @@ class TestDirectiveBuild:
             def run(self, prompt, on_token=None, on_tool=None):
                 return "done"
 
-        monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
-        monkeypatch.setattr("forgecc.interface.repl.Engine", FakeEngine)
+        monkeypatch.setattr("forgeagent.interface.repl.Provider", FakeProvider)
+        monkeypatch.setattr("forgeagent.interface.repl.Engine", FakeEngine)
 
         main()
 
@@ -1024,7 +1059,7 @@ class TestReplUsage:
 
         printed = []
         monkeypatch.setattr(
-            "forgecc.interface.repl.console.print",
+            "forgeagent.interface.repl.console.print",
             lambda *args, **kwargs: printed.append(str(args[0])),
         )
 
@@ -1041,7 +1076,7 @@ class TestReplUsage:
 
         printed = []
         monkeypatch.setattr(
-            "forgecc.interface.repl.console.print",
+            "forgeagent.interface.repl.console.print",
             lambda *args, **kwargs: printed.append(str(args[0])),
         )
 

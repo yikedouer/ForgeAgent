@@ -9,15 +9,15 @@ from unittest.mock import MagicMock, patch, PropertyMock
 import httpx
 import pytest
 
-from forgecc.core.providers import (
+from forgeagent.core.providers import (
     Invocation,
     Completion,
     Provider,
     _is_context_window_error,
     _should_retry,
 )
-from forgecc.core.errors import ContextWindowError, RateLimitedError
-from forgecc.core.settings import Settings
+from forgeagent.core.errors import ContextWindowError, RateLimitedError
+from forgeagent.core.settings import Settings
 from openai import APIError, APIConnectionError, RateLimitError, AuthenticationError
 
 
@@ -65,7 +65,7 @@ def _make_settings():
 
 
 class TestProviderSideQuery:
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_side_query_returns_text(self, MockOpenAI):
         mock_client = MockOpenAI.return_value
         mock_resp = MagicMock()
@@ -77,7 +77,7 @@ class TestProviderSideQuery:
         result = p.side_query("system", "user msg")
         assert result == "answer"
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_side_query_accepts_dict_response(self, MockOpenAI):
         mock_client = MockOpenAI.return_value
         mock_client.chat.completions.create.return_value = {
@@ -97,14 +97,14 @@ class TestProviderSideQuery:
 
 
 class TestProviderTokens:
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_initial_tokens_zero(self, MockOpenAI):
         p = Provider(_make_settings())
         assert p.tokens_used == (0, 0)
 
 
 class TestProviderGenerate:
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_prompt_cache_marks_system_message_when_enabled(self, MockOpenAI):
         mock_client = MockOpenAI.return_value
         mock_client.chat.completions.create.return_value = []
@@ -128,7 +128,7 @@ class TestProviderGenerate:
             ],
         }
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream(self, MockOpenAI):
         """模拟流式文本响应。"""
         mock_client = MockOpenAI.return_value
@@ -161,7 +161,7 @@ class TestProviderGenerate:
         assert result.usage_in == 10
         assert result.usage_out == 5
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream_ignores_on_token_exception(self, MockOpenAI):
         mock_client = MockOpenAI.return_value
         chunk = SimpleNamespace(
@@ -187,14 +187,14 @@ class TestProviderGenerate:
         assert result.usage_in == 10
         assert result.usage_out == 5
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_generate_raises_rate_limited_error_after_retries(self, MockOpenAI, monkeypatch):
         response = httpx.Response(
             429,
             request=httpx.Request("POST", "https://test/v1/chat/completions"),
         )
         exc = RateLimitError("rate limited", response=response, body=None)
-        monkeypatch.setattr("forgecc.core.providers.time.sleep", lambda seconds: None)
+        monkeypatch.setattr("forgeagent.core.providers.time.sleep", lambda seconds: None)
 
         p = Provider(_make_settings())
         p._call = MagicMock(side_effect=exc)
@@ -202,7 +202,7 @@ class TestProviderGenerate:
         with pytest.raises(RateLimitedError):
             p.generate([{"role": "user", "content": "hi"}])
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream_accepts_dict_chunks(self, MockOpenAI):
         """兼容 dict 形态的 chunk/choice/delta/usage。"""
         mock_client = MockOpenAI.return_value
@@ -234,7 +234,7 @@ class TestProviderGenerate:
         assert result.usage_in == 10
         assert result.usage_out == 5
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream_tolerates_partial_usage_fields(self, MockOpenAI):
         """兼容只返回部分 usage 字段的 OpenAI-like 端点。"""
         mock_client = MockOpenAI.return_value
@@ -255,7 +255,7 @@ class TestProviderGenerate:
         assert result.usage_in == 10
         assert result.usage_out == 0
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream_treats_bool_usage_tokens_as_zero(self, MockOpenAI):
         """bool 是 int 的子类，但 token 统计字段不应接受布尔值。"""
         mock_client = MockOpenAI.return_value
@@ -277,7 +277,7 @@ class TestProviderGenerate:
         assert result.usage_out == 0
         assert p.tokens_used == (0, 0)
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream_tolerates_usage_chunk_without_choices(self, MockOpenAI):
         """兼容 usage-only chunk 缺少 choices 字段的 OpenAI-like 端点。"""
         mock_client = MockOpenAI.return_value
@@ -301,7 +301,7 @@ class TestProviderGenerate:
         assert result.usage_in == 10
         assert result.usage_out == 5
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream_tolerates_choice_without_delta(self, MockOpenAI):
         """兼容 choice 缺少 delta 字段的空分片。"""
         mock_client = MockOpenAI.return_value
@@ -334,7 +334,7 @@ class TestProviderGenerate:
         assert result.usage_in == 10
         assert result.usage_out == 5
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream_tolerates_non_iterable_tool_calls(self, MockOpenAI):
         """兼容 delta.tool_calls 不是可迭代列表的异常分片。"""
         mock_client = MockOpenAI.return_value
@@ -359,7 +359,7 @@ class TestProviderGenerate:
         assert result.usage_in == 10
         assert result.usage_out == 5
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream(self, MockOpenAI):
         """模拟流式工具调用响应。"""
         mock_client = MockOpenAI.return_value
@@ -387,7 +387,7 @@ class TestProviderGenerate:
         assert result.invocations[0].fn_name == "read_file"
         assert result.invocations[0].fn_args == {"path": "/a.py"}
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_accepts_dict_tool_call_delta(self, MockOpenAI):
         """兼容 dict 形态的 tool call delta。"""
         mock_client = MockOpenAI.return_value
@@ -421,7 +421,7 @@ class TestProviderGenerate:
         assert result.invocations[0].fn_name == "read_file"
         assert result.invocations[0].fn_args == {"path": "/a.py"}
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_tolerates_malformed_index(self, MockOpenAI):
         """兼容 index 不是整数的异常工具调用分片。"""
         mock_client = MockOpenAI.return_value
@@ -449,7 +449,7 @@ class TestProviderGenerate:
             Invocation(call_id="call_1", fn_name="read_file", fn_args={"path": "/a.py"})
         ]
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_treats_bool_index_as_malformed(self, MockOpenAI):
         """bool 是 int 的子类，但工具调用 index 不应接受布尔值。"""
         mock_client = MockOpenAI.return_value
@@ -476,7 +476,7 @@ class TestProviderGenerate:
             Invocation(call_id="call_0", fn_name="read_file", fn_args={"path": "/a.py"})
         ]
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_uses_fallback_for_malformed_call_id(self, MockOpenAI):
         """兼容 id 不是字符串的异常工具调用分片。"""
         mock_client = MockOpenAI.return_value
@@ -504,7 +504,7 @@ class TestProviderGenerate:
             Invocation(call_id="call_0", fn_name="read_file", fn_args={"path": "/a.py"})
         ]
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_skips_malformed_function_name(self, MockOpenAI):
         """函数名不是字符串时不生成异常 invocation。"""
         mock_client = MockOpenAI.return_value
@@ -530,7 +530,7 @@ class TestProviderGenerate:
 
         assert result.invocations == []
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_text_stream_without_tool_calls_attribute(self, MockOpenAI):
         """兼容不在文本 delta 上发送 tool_calls 字段的端点。"""
         mock_client = MockOpenAI.return_value
@@ -549,7 +549,7 @@ class TestProviderGenerate:
         assert result.text == "hello"
         assert result.invocations == []
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_handles_missing_optional_delta_fields(self, MockOpenAI):
         """兼容工具调用分片里缺失 id/name 等可选字段。"""
         mock_client = MockOpenAI.return_value
@@ -587,7 +587,7 @@ class TestProviderGenerate:
         assert result.invocations[0].fn_name == "read_file"
         assert result.invocations[0].fn_args == {"path": "/a.py"}
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_synthesizes_missing_call_id(self, MockOpenAI):
         """兼容不返回工具调用 id 的端点，避免后续 tool 消息空 id。"""
         mock_client = MockOpenAI.return_value
@@ -612,7 +612,7 @@ class TestProviderGenerate:
 
         assert result.invocations[0].call_id == "call_0"
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_defaults_missing_index_for_single_call(self, MockOpenAI):
         """兼容单工具调用 delta 缺失 index 的端点。"""
         mock_client = MockOpenAI.return_value
@@ -638,7 +638,7 @@ class TestProviderGenerate:
         assert result.invocations[0].call_id == "call_1"
         assert result.invocations[0].fn_args == {"path": "/a.py"}
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_defaults_none_index_for_single_call(self, MockOpenAI):
         """兼容 index=None 的单工具调用 delta。"""
         mock_client = MockOpenAI.return_value
@@ -664,7 +664,7 @@ class TestProviderGenerate:
         assert result.invocations[0].call_id == "call_0"
         assert result.invocations[0].fn_args == {"path": "/a.py"}
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_wraps_non_object_arguments(self, MockOpenAI):
         """工具参数 JSON 必须是 object；数组/字符串等合法 JSON 也要包装成 dict。"""
         mock_client = MockOpenAI.return_value
@@ -690,7 +690,7 @@ class TestProviderGenerate:
 
         assert result.invocations[0].fn_args == {"_raw": '["not", "object"]'}
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_skips_empty_tool_call_delta(self, MockOpenAI):
         """空工具调用分片不应生成 fn_name 为空的假 invocation。"""
         mock_client = MockOpenAI.return_value
@@ -709,7 +709,7 @@ class TestProviderGenerate:
 
         assert result.invocations == []
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_skips_call_without_function_name(self, MockOpenAI):
         """只有 arguments 但最终没有函数名的半成品调用应被忽略。"""
         mock_client = MockOpenAI.return_value
@@ -732,7 +732,7 @@ class TestProviderGenerate:
 
         assert result.invocations == []
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_accepts_object_arguments_delta(self, MockOpenAI):
         """兼容直接返回对象形式 function.arguments 的 OpenAI-like 端点。"""
         mock_client = MockOpenAI.return_value
@@ -758,7 +758,7 @@ class TestProviderGenerate:
 
         assert result.invocations[0].fn_args == {"path": "/a.py"}
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_wraps_unserializable_arguments_delta(self, MockOpenAI):
         """直接返回不可 JSON 序列化的 arguments 时不应让整次 Provider 调用失败。"""
         mock_client = MockOpenAI.return_value
@@ -786,7 +786,7 @@ class TestProviderGenerate:
 
         assert result.invocations[0].fn_args == {"_raw": "[[...]]"}
 
-    @patch("forgecc.core.providers.OpenAI")
+    @patch("forgeagent.core.providers.OpenAI")
     def test_tool_call_stream_wraps_empty_array_arguments_delta(self, MockOpenAI):
         """直接返回空数组 arguments 时仍按非 object 参数包装，不误判为空对象。"""
         mock_client = MockOpenAI.return_value

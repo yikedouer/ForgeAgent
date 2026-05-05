@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from forgecc.frontmatter import parse_frontmatter
-from forgecc.core.subagent import (
+from forgeagent.frontmatter import parse_frontmatter
+from forgeagent.core.subagent import (
     get_sub_agent_config,
     get_available_agent_types,
     build_agent_descriptions,
@@ -17,7 +17,7 @@ from forgecc.core.subagent import (
     PLAN_PROMPT,
     GENERAL_PROMPT,
 )
-from forgecc.core.agent_store import create_agent_run
+from forgeagent.core.agent_store import create_agent_run
 
 
 @pytest.fixture(autouse=True)
@@ -91,7 +91,7 @@ class TestBuiltinAgents:
 
 class TestCustomAgentDiscovery:
     def test_project_level_agent(self, tmp_path, monkeypatch):
-        agents_dir = tmp_path / ".forgecc" / "agents"
+        agents_dir = tmp_path / ".forgeagent" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "reviewer.md").write_text(
             "---\nname: reviewer\ndescription: Code reviewer\n---\nReview code carefully."
@@ -110,7 +110,7 @@ class TestCustomAgentDiscovery:
             "---\nname: reviewer\ndescription: Code reviewer\n---\nReview code carefully."
         )
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("FORGECC_AGENTS_DIR", "~/agents")
+        monkeypatch.setenv("FORGEAGENT_AGENTS_DIR", "~/agents")
         monkeypatch.chdir(tmp_path)
         reset_agent_cache()
 
@@ -120,9 +120,9 @@ class TestCustomAgentDiscovery:
 
     def test_project_overrides_user(self, tmp_path, monkeypatch):
         # 用户级
-        user_agents = Path.home() / ".forgecc" / "agents"
+        user_agents = Path.home() / ".forgeagent" / "agents"
         # 项目级
-        proj_agents = tmp_path / ".forgecc" / "agents"
+        proj_agents = tmp_path / ".forgeagent" / "agents"
         proj_agents.mkdir(parents=True)
         (proj_agents / "custom.md").write_text(
             "---\nname: custom\ndescription: Project version\n---\nProject prompt."
@@ -134,7 +134,7 @@ class TestCustomAgentDiscovery:
         assert "Project prompt" in config["system_prompt"]
 
     def test_allowed_tools_parsing(self, tmp_path, monkeypatch):
-        agents_dir = tmp_path / ".forgecc" / "agents"
+        agents_dir = tmp_path / ".forgeagent" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "limited.md").write_text(
             "---\nname: limited\ndescription: Limited\nallowed-tools: read_file, grep_search\n---\nPrompt."
@@ -146,7 +146,7 @@ class TestCustomAgentDiscovery:
         assert config["tool_names"] == {"read_file", "grep_search"}
 
     def test_allowed_tools_ignores_blank_entries(self, tmp_path, monkeypatch):
-        agents_dir = tmp_path / ".forgecc" / "agents"
+        agents_dir = tmp_path / ".forgeagent" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "limited.md").write_text(
             "---\nname: limited\ndescription: Limited\n"
@@ -159,7 +159,7 @@ class TestCustomAgentDiscovery:
         assert config["tool_names"] == {"read_file", "grep_search"}
 
     def test_blank_allowed_tools_means_unrestricted(self, tmp_path, monkeypatch):
-        agents_dir = tmp_path / ".forgecc" / "agents"
+        agents_dir = tmp_path / ".forgeagent" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "open.md").write_text(
             "---\nname: open\ndescription: Open\nallowed-tools:\n---\nPrompt."
@@ -196,7 +196,7 @@ class TestBuildAgentDescriptions:
         assert build_agent_descriptions() == ""
 
     def test_with_custom(self, tmp_path, monkeypatch):
-        agents_dir = tmp_path / ".forgecc" / "agents"
+        agents_dir = tmp_path / ".forgeagent" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "tester.md").write_text(
             "---\nname: tester\ndescription: Test runner\n---\nRun tests."
@@ -214,7 +214,7 @@ class TestAgentStore:
         home = tmp_path / "home"
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("FORGECC_AGENT_STORE", "~/agent-runs")
+        monkeypatch.setenv("FORGEAGENT_AGENT_STORE", "~/agent-runs")
 
         md_path, json_path = create_agent_run(
             str(tmp_path), "agent1", "agent", "test agent", "general", "m", "prompt"
@@ -225,7 +225,7 @@ class TestAgentStore:
         assert md_path.exists()
 
     def test_create_agent_run_rejects_agent_id_path_traversal(self, tmp_path):
-        outside = tmp_path / ".forgecc" / "escape.md"
+        outside = tmp_path / ".forgeagent" / "escape.md"
 
         with pytest.raises(ValueError, match="Invalid agent_id"):
             create_agent_run(

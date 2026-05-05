@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from forgecc.context.compaction_tokens import (
+from forgeagent.context.compaction_tokens import (
     conversation_tokens,
     estimate_tokens,
     msg_tokens,
@@ -15,7 +15,7 @@ def test_estimate_tokens_uses_tiktoken_with_minimum_one():
 
 
 def test_estimate_tokens_falls_back_to_rough_count(monkeypatch):
-    import forgecc.context.compaction_tokens as tokens
+    import forgeagent.context.compaction_tokens as tokens
 
     monkeypatch.setattr(tokens, "_encoder", lambda: None)
     assert tokens.estimate_tokens("a" * 40) == 10

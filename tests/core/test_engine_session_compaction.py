@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from forgecc.core.engine_session import run_manual_compaction
+from forgeagent.core.engine_session import run_manual_compaction
 
 
 def test_run_manual_compaction_reports_before_after_stats() -> None:

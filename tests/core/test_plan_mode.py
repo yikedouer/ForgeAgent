@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from forgecc.core.plan_mode import (
+from forgeagent.core.plan_mode import (
     generate_plan_file_path,
     build_plan_mode_prompt,
     PLAN_TOOL_NAMES,
@@ -14,7 +14,7 @@ from forgecc.core.plan_mode import (
     EDIT_TOOL_NAMES,
     PlanModeController,
 )
-from forgecc.core.permissions import PermissionMode, PermissionEnforcer
+from forgeagent.core.permissions import PermissionMode, PermissionEnforcer
 
 
 class TestPlanConstants:
@@ -35,7 +35,7 @@ class TestPlanConstants:
 
 class TestGeneratePlanFilePath:
     def test_uses_env_plans_dir(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_PLANS_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path))
 
         path = generate_plan_file_path("env123")
 
@@ -46,7 +46,7 @@ class TestGeneratePlanFilePath:
         home = tmp_path / "home"
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("FORGECC_PLANS_DIR", "~/plans")
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", "~/plans")
 
         path = generate_plan_file_path("env123")
 
@@ -63,7 +63,7 @@ class TestGeneratePlanFilePath:
         assert path.parent.is_dir()
 
     def test_rejects_session_id_path_traversal(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_PLANS_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path))
 
         with pytest.raises(ValueError, match="Invalid session_id"):
             generate_plan_file_path("../escape")
@@ -71,7 +71,7 @@ class TestGeneratePlanFilePath:
         assert not (tmp_path.parent / "plan-escape.md").exists()
 
     def test_long_session_id_uses_safe_filename(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_PLANS_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path))
         long_id = "session_" + "x" * 300 + "a"
 
         path = generate_plan_file_path(long_id)
@@ -96,7 +96,7 @@ class TestBuildPlanModePrompt:
 
 class TestPlanModeController:
     def test_toggle_enter_sets_plan_mode_and_plan_file(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_PLANS_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path))
         enforcer = PermissionEnforcer(PermissionMode.PROMPT, tmp_path)
         controller = PlanModeController(
             session_id=lambda: "abc123",
@@ -111,7 +111,7 @@ class TestPlanModeController:
         assert controller.plan_file_path == str(tmp_path / "plan-abc123.md")
 
     def test_exit_without_approval_restores_previous_mode(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_PLANS_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path))
         enforcer = PermissionEnforcer(PermissionMode.WRITE, tmp_path)
         controller = PlanModeController(
             session_id=lambda: "abc123",
@@ -127,7 +127,7 @@ class TestPlanModeController:
         assert controller.plan_file_path is None
 
     def test_filter_blocks_shell_and_appends_tool_result(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_PLANS_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path))
         transcript: list[dict] = []
         enforcer = PermissionEnforcer(PermissionMode.PROMPT, tmp_path)
         controller = PlanModeController(

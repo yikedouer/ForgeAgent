@@ -9,7 +9,7 @@
 ### 存储布局
 
 ```
-~/.forgecc/projects/{project_hash}/memory/
+~/.forgeagent/projects/{project_hash}/memory/
 ├── MEMORY.md           # 索引文件（自动生成，双重截断：200行/25KB）
 ├── user_feedback_xxx.md
 ├── project_note_xxx.md
@@ -17,9 +17,9 @@
 ```
 
 路径解析优先级：
-1. `FORGECC_MEMORY_DIR` 环境变量（绝对路径覆盖）
+1. `FORGEAGENT_MEMORY_DIR` 环境变量（绝对路径覆盖）
 2. Git 根目录规范化后的哈希（worktree 共享同一份记忆）
-3. 回退：`~/.forgecc/projects/{cwd_hash}/memory/`
+3. 回退：`~/.forgeagent/projects/{cwd_hash}/memory/`
 
 ### 记忆类型
 
@@ -77,9 +77,11 @@ ESLint 和 Prettier 配置已设置为 useTabs: true。
 按优先级从低到高，同名技能高优先级覆盖：
 
 ```
-1. ~/.forgecc/skills/<name>/SKILL.md   （用户级）
-2. <cwd>/.claude/skills/<name>/SKILL.md（兼容 Claude Code）
-3. <cwd>/.forgecc/skills/<name>/SKILL.md（项目级，最高）
+1. ~/.forgeagent/skills/<name>/SKILL.md   （用户级）
+2. ~/.agents/skills/<name>/SKILL.md       （通用用户级）
+3. <cwd>/.claude/skills/<name>/SKILL.md   （兼容 Claude Code）
+4. <cwd>/.forgeagent/skills/<name>/SKILL.md（兼容旧版项目配置）
+5. <cwd>/.agents/skills/<name>/SKILL.md   （通用项目级，最高）
 ```
 
 ### 技能文件格式
@@ -150,6 +152,6 @@ $ARGUMENTS
 
 ### 内置技能示例
 
-项目 `.forgecc/skills/` 目录预配置了：
+项目 `.agents/skills/` 目录可预配置：
 - **commit**：分析 git diff 生成 Conventional Commits 格式的提交消息
 - **review**：代码审查，关注安全、性能、可维护性

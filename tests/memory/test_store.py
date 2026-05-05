@@ -1,4 +1,4 @@
-"""记忆存储层测试 — forgecc.memory.store"""
+"""记忆存储层测试 — forgeagent.memory.store"""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from forgecc.memory.store import (
+from forgeagent.memory.store import (
     get_memory_dir,
     save_memory,
     list_memories,
@@ -24,7 +24,7 @@ from forgecc.memory.store import (
 class TestGetMemoryDir:
     def test_env_override(self, tmp_path, monkeypatch):
         override = tmp_path / "custom_mem"
-        monkeypatch.setenv("FORGECC_MEMORY_DIR", str(override))
+        monkeypatch.setenv("FORGEAGENT_MEMORY_DIR", str(override))
         result = get_memory_dir("/any/workspace")
         assert result == override
         assert result.exists()
@@ -33,7 +33,7 @@ class TestGetMemoryDir:
         home = tmp_path / "home"
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("FORGECC_MEMORY_DIR", "~/memory")
+        monkeypatch.setenv("FORGEAGENT_MEMORY_DIR", "~/memory")
 
         result = get_memory_dir("/any/workspace")
 
@@ -42,7 +42,7 @@ class TestGetMemoryDir:
 
     def test_auto_creates(self, tmp_path, monkeypatch):
         override = tmp_path / "new_mem_dir"
-        monkeypatch.setenv("FORGECC_MEMORY_DIR", str(override))
+        monkeypatch.setenv("FORGEAGENT_MEMORY_DIR", str(override))
         result = get_memory_dir("/ws")
         assert result.is_dir()
 

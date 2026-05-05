@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from forgecc.core.permissions import (
+from forgeagent.core.permissions import (
     PermissionMode,
     PermissionEnforcer,
     check_workspace_boundary,

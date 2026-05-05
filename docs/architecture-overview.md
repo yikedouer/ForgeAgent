@@ -1,131 +1,107 @@
 # 架构总览
 
-## 一句话定位
+ForgeAgent 是一个同步主循环的 Coding Agent。核心对象是 `Engine`：它持有配置、Provider、transcript、权限器、计划模式、MCP 生命周期和上下文状态。
 
-ForgeCC 是一个 Think→Act→Observe 循环驱动的 Coding Agent，核心引擎 `Engine` 协调 LLM、工具、上下文、记忆四大子系统。
+## 分层
 
-## 模块分层
+```text
+interface/
+  repl.py, repl_commands.py, directive.py
+  用户输入、命令、系统提示词、导出
 
-```
-┌─────────────────────────────────────────────────┐
-│                  interface/                       │
-│   repl.py   directive.py   streamer.py   cli.py  │
-│            （用户交互 & 系统提示词）                │
-├─────────────────────────────────────────────────┤
-│                    core/                         │
-│   engine.py    providers.py    settings.py       │
-│   subagent.py  permissions.py  plan_mode.py      │
-│   agent_store.py  team.py  log.py                │
-│            （Agent 循环 & 编排）                   │
-├──────────────┬──────────────┬────────────────────┤
-│  context/    │   memory/    │     skills/         │
-│  compaction  │   store      │     playbook        │
-│  collapse    │   recall     │     loader          │
-│  checkpoint  │   prefetch   │     frontmatter     │
-│（上下文压缩） │ （持久记忆）  │   （技能发现）       │
-├──────────────┴──────────────┴────────────────────┤
-│                  toolkit.py                       │
-│        （装饰器驱动的全局工具注册表）                │
-├─────────────────────────────────────────────────┤
-│                tools/                       │
-│   shell  reader  writer  editor  finder           │
-│   agent  team    skill   memory                   │
-│            （12 个内置工具实现）                    │
-└─────────────────────────────────────────────────┘
-```
+core/
+  engine.py, engine_loop.py, engine_session.py
+  providers.py, settings.py, permissions.py
+  plan_mode.py, subagent.py, subagent_runtime.py, mcp/
+  Agent 编排、Provider、权限、计划、子 Agent、MCP
 
-## Agent 循环（Think→Act→Observe）
+toolkit.py, toolkit_schema.py, toolkit_mcp.py
+  工具注册、schema 生成、参数校验、执行入口、MCP tool 桥接
 
-```
-用户输入
-  │
-  ▼
-┌──────────────────────────────────────┐
-│           engine.run()               │
-│  ┌─────────────────────────────┐     │
-│  │  1. Think: Provider.chat_stream() │←── 系统提示词（directive.py）
-│  │     发送上下文给 LLM                │←── 记忆注入（memory/recall.py）
-│  │     流式接收响应                    │
-│  ├─────────────────────────────┤     │
-│  │  2. Act: 解析 tool_calls          │
-│  │     权限检查（PermissionEnforcer）  │
-│  │     toolkit.run_batch() 执行      │
-│  │     ├── readonly 工具 → 并发       │
-│  │     └── write 工具 → 顺序         │
-│  ├─────────────────────────────┤     │
-│  │  3. Observe: 工具结果入上下文      │
-│  │     上下文压缩检查（六层管道）      │
-│  │     未完成 → 回到 Think            │
-│  └─────────────────────────────┘     │
-│              ↓ 完成                   │
-│     返回最终文本响应                   │
-└──────────────────────────────────────┘
+tools/
+  reader, writer, editor, finder, shell, memory, skill, agent, team
+  内置工具实现
+
+context/
+  checkpoint, compaction, collapse, tool_storage
+  会话持久化、上下文压缩、大工具结果落盘
+
+memory/
+  store, recall, prefetch
+  跨会话记忆存储与召回
+
+skills/
+  playbook
+  Markdown Skill 发现和渲染
 ```
 
-循环终止条件：
-- 模型返回纯文本（无 tool_calls）→ 正常完成
-- 达到 `max_rounds` 上限 → 强制终止
-- 上下文 token 超出 `context_budget` → 触发压缩后继续
+## 主链路
 
-## 上下文六层压缩管道
-
-当 token 计数接近 `context_budget` 时，按顺序逐层应用：
-
-| 层 | 机制 | 说明 |
-|----|------|------|
-| 1 | Budget 截断 | 丢弃最旧的消息，保留系统提示词和最近消息 |
-| 2 | Snip 过时消息 | 标记长时间未引用的工具结果为 `[snipped]` |
-| 3 | Microcompact 聚合 | 合并连续的同类工具结果为摘要 |
-| 4 | Context Collapse 投影 | 将完整消息替换为结构化投影视图 |
-| 5 | Autocompact 触发 | 主动调用 LLM 生成对话摘要 |
-| 6 | 紧急裁剪 | 最后手段，强制丢弃直到满足 budget |
-
-## 权限系统
-
-五层权限模式（从严到宽）：
-
-| 模式 | read | write | danger | 适用场景 |
-|------|------|-------|--------|---------|
-| PLAN | ✅ | ❌ | ❌ | 计划模式（只读规划） |
-| READONLY | ✅ | ❌ | ❌ | 代码审查 |
-| WRITE | ✅ | ✅ | ❌ | 日常开发 |
-| PROMPT | ✅ | ✅ | ⚠️ 确认 | **默认模式** |
-| DANGER | ✅ | ✅ | ✅ | 完全信任 |
-
-工作区边界保护：所有 write 级工具检查 filepath 是否在 `Settings.workspace` 内，防止 Agent 越界写文件。
-
-## 数据流全景
-
-```
-启动阶段：
-.env → Settings.resolve() → Provider(client) → Engine → REPL
-
-每轮交互：
-用户输入 → engine.run()
-  → directive.build() 组装系统提示词
-  → memory.prefetch 预取记忆
-  → Provider.chat_stream() → LLM
-  → 解析响应 → tool_calls?
-     ├── 是 → permissions.check() → toolkit.run_batch()
-     │         → 结果入上下文 → 压缩检查 → 继续循环
-     └── 否 → 输出文本 → 结束
-
-子 Agent 调用：
-  agent/team 工具 → Engine.execute_sub_agent()
-  → 创建隔离 Engine 实例（独立上下文）
-  → 子 Engine 运行 → 返回文本到父对话
-  → token 计数累积到父引擎
+```text
+ForgeREPL.default()
+  -> Engine.run(user_input)
+  -> run_agent_loop()
+  -> prepare_round_inputs()
+       - maybe_compact()
+       - build directive
+       - inject recalled memories
+       - select tool schemas
+  -> Provider.generate(messages, tools)
+  -> append assistant message
+  -> toolkit.run_batch(tool calls)
+       - validate schema
+       - enforce permissions
+       - execute handlers
+  -> append tool results
+  -> repeat until no tool calls
 ```
 
-## 核心类关系
+## 关键状态
 
-| 类 | 文件 | 职责 |
-|----|------|------|
-| `Engine` | core/engine.py | Agent 主循环、子 Agent 调度、上下文管理 |
-| `Provider` | core/providers.py | OpenAI/Azure 客户端封装、流式调用、重试 |
-| `Settings` | core/settings.py | 配置加载、Provider 预设、for_model() |
-| `PermissionEnforcer` | core/permissions.py | 权限检查、工作区边界、交互确认 |
-| `SubAgent` | core/subagent.py | 内置类型定义、自定义 Agent 发现 |
-| `Directive` | interface/directive.py | 系统提示词 7 大节组装 |
-| `Repl` | interface/repl.py | REPL 命令循环、会话管理 |
-| `ToolSpec` | toolkit.py | 工具元数据 + 执行函数封装 |
+| 状态 | 位置 | 说明 |
+|---|---|---|
+| `settings` | `Engine` | API、模型、权限、workspace、MCP 配置 |
+| `provider` | `Engine` | OpenAI-compatible client 封装 |
+| `transcript` | `Engine` | 完整对话历史 |
+| `_collapse` | `Engine` | 可逆上下文折叠状态 |
+| `_plan` | `Engine` | 计划模式控制器 |
+| `_mcp_manager` | `Engine` | MCP server 生命周期 |
+| `_active_engine` | `core.engine` | 工具执行时找到当前 workspace/parent engine |
+
+## 工具系统
+
+工具通过 `@tool(...)` 注册到 `toolkit._CATALOG`。LLM 看到的是 `toolkit.schemas()` 生成的 OpenAI function schema；真正执行时走 `toolkit.run_one()` / `run_batch()`。
+
+执行步骤：
+
+1. 查找工具。
+2. 校验参数 schema。
+3. 按 `risk_level` 和路径参数执行权限检查。
+4. 触发 `tool.before` hook。
+5. 调用 handler。
+6. 捕获异常并封装为工具结果。
+7. 触发 `tool.after` hook。
+
+只读工具可并发执行；写入和高风险工具保持顺序执行。
+
+## 上下文管理
+
+每轮发送给模型前都会估算 token 并尝试压缩：
+
+1. 大工具结果预算裁剪。
+2. 长工具结果 snip。
+3. 过期结果清理。
+4. 空闲微压缩。
+5. 可逆 collapse 投影视图。
+6. LLM autocompact 摘要。
+7. 紧急 prune。
+
+`collapse.py` 不修改原始 transcript，只生成发送给 Provider 的投影视图。`autocompact` 和 `prune` 才会破坏性修改历史。
+
+## 子 Agent
+
+`agent` 和 `team` 工具通过 `Engine.execute_sub_agent()` 创建子 Engine。子 Agent 有独立 transcript、可选模型覆盖、过滤后的工具集和运行记录。执行结果以文本返回父对话，token 用量回传父 Engine。
+
+## MCP
+
+MCP 配置来自 `FORGEAGENT_MCP_SERVERS`。`MCPServerManager` 启动 stdio server，`MCPClient` 使用官方 MCP SDK 获取工具列表，`toolkit_mcp.py` 将远程工具转换成本地 `ToolSpec`。

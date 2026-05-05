@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from forgecc.context.compaction_autocompact import (
+from forgeagent.context.compaction_autocompact import (
     MAX_CONSECUTIVE_FAILURES,
     _autocompact,
     _extract_recent_file_paths,

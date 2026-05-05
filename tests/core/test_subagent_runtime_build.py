@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from forgecc.core.subagent_runtime import build_sub_agent_runtime
-from forgecc.core.permissions import PermissionMode
-from forgecc.core.settings import Settings
+from forgeagent.core.subagent_runtime import build_sub_agent_runtime
+from forgeagent.core.permissions import PermissionMode
+from forgeagent.core.settings import Settings
 
 
 def _settings() -> Settings:
     return Settings(
         api_key="test-key",
         base_url="https://test.example/v1",
-        model="qwen3.6-plus",
+        model="base-model",
         context_budget=128000,
         max_rounds=60,
         workspace="/tmp/workspace",
@@ -29,7 +29,7 @@ def test_build_sub_agent_runtime_inherits_parent_provider_without_model_override
         provider_factory=lambda _: (_ for _ in ()).throw(AssertionError("unused")),
     )
 
-    assert runtime.model == "qwen3.6-plus"
+    assert runtime.model == "base-model"
     assert runtime.settings == settings.replace(max_rounds=30)
     assert runtime.provider is provider
     assert runtime.uses_parent_provider is True
@@ -40,11 +40,6 @@ def test_build_sub_agent_runtime_rebuilds_provider_for_model_override(monkeypatc
     parent_provider = object()
     created = []
 
-    monkeypatch.setattr(
-        "forgecc.core.settings._load_env_cascade",
-        lambda: {"DEEPSEEK_API_KEY": "sk-deepseek"},
-    )
-
     def provider_factory(sub_settings):
         created.append(sub_settings)
         return {"settings": sub_settings}
@@ -53,13 +48,13 @@ def test_build_sub_agent_runtime_rebuilds_provider_for_model_override(monkeypatc
         parent_settings=settings,
         parent_provider=parent_provider,
         parent_permission_mode=PermissionMode.PROMPT,
-        model="deepseek-chat",
+        model="custom-model",
         provider_factory=provider_factory,
     )
 
-    assert runtime.model == "deepseek-chat"
-    assert runtime.settings.model == "deepseek-chat"
-    assert runtime.settings.base_url == "https://api.deepseek.com"
+    assert runtime.model == "custom-model"
+    assert runtime.settings.model == "custom-model"
+    assert runtime.settings.base_url == "https://test.example/v1"
     assert runtime.provider == {"settings": runtime.settings}
     assert runtime.uses_parent_provider is False
     assert created == [runtime.settings]

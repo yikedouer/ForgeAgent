@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from forgecc.core.engine_loop import persist_tool_results, tool_result_messages
-from forgecc.toolkit import ToolResult
+from forgeagent.core.engine_loop import persist_tool_results, tool_result_messages
+from forgeagent.toolkit import ToolResult
 
 
 def test_persist_tool_results_replaces_output_with_persisted_reference():

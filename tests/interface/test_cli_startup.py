@@ -1,7 +1,7 @@
 import pytest
 
-from forgecc.core.settings import Settings
-from forgecc.interface.cli_startup import (
+from forgeagent.core.settings import Settings
+from forgeagent.interface.cli_startup import (
     CliStartupError,
     apply_cli_settings_overrides,
     normalize_resume_id,
@@ -12,14 +12,14 @@ from forgecc.interface.cli_startup import (
 def _settings() -> Settings:
     return Settings(
         api_key="sk-env",
-        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        model="qwen3.6-plus",
+        base_url="https://proxy.example/v1",
+        model="base-model",
         context_budget=128000,
         max_rounds=60,
         workspace="/tmp/work",
         permission_mode="prompt",
-        client_type="azure",
-        api_version="2024-12-01-preview",
+        client_type="legacy",
+        api_version="legacy-version",
     )
 
 

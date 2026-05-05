@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from forgecc.context.compaction_tool_entries import (
+from forgeagent.context.compaction_tool_entries import (
     collect_snippable_tool_entries,
     parse_tool_args_map,
 )
-from forgecc.context.compaction import SNIP_PLACEHOLDER
+from forgeagent.context.compaction import SNIP_PLACEHOLDER
 
 
 def _tool_call(call_id: object, name: str, arguments: object = "{}") -> dict:

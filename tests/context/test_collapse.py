@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from forgecc.context.collapse import CollapseState, try_collapse, project_view
+from forgeagent.context.collapse import CollapseState, try_collapse, project_view
 
 
 def _make_messages(n: int) -> list[dict]:

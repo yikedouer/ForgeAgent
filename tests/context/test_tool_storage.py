@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-import forgecc.context.tool_storage as ts
-from forgecc.context.tool_storage import (
+import forgeagent.context.tool_storage as ts
+from forgeagent.context.tool_storage import (
     persist_if_large,
     persist_large_result,
     load_persisted_result,
@@ -29,7 +29,7 @@ def _reset_tracking():
 
 class TestPersistIfLarge:
     def test_large_content_uses_env_session_dir(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         content = "x" * (PERSIST_THRESHOLD + 1)
 
         result = persist_if_large("s_env", "read_file", content)
@@ -50,7 +50,7 @@ class TestPersistIfLarge:
         assert "Preview" in result
 
     def test_tool_name_path_separators_do_not_break_persistence(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         content = "x" * (PERSIST_THRESHOLD + 1)
 
         result = persist_if_large("s1", "custom/tool", content)
@@ -61,7 +61,7 @@ class TestPersistIfLarge:
         assert files[0].name.endswith("-custom_tool.txt")
 
     def test_rejects_blank_tool_name(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         content = "x" * (PERSIST_THRESHOLD + 1)
 
         with pytest.raises(ValueError, match="Invalid tool_name"):
@@ -70,7 +70,7 @@ class TestPersistIfLarge:
         assert not (tmp_path / "s1" / "tool-results").exists()
 
     def test_rejects_session_id_path_traversal(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         content = "x" * (PERSIST_THRESHOLD + 1)
 
         with pytest.raises(ValueError, match="Invalid session_id"):
@@ -79,7 +79,7 @@ class TestPersistIfLarge:
         assert not (tmp_path.parent / "escape").exists()
 
     def test_same_second_large_results_do_not_overwrite(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         monkeypatch.setattr(ts._time, "time", lambda: 1234567890)
         first = "a" * (PERSIST_THRESHOLD + 1)
         second = "b" * (PERSIST_THRESHOLD + 1)
@@ -92,7 +92,7 @@ class TestPersistIfLarge:
         assert {f.read_text(encoding="utf-8")[0] for f in files} == {"a", "b"}
 
     def test_long_tool_name_is_capped_for_filesystem(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         content = "x" * (PERSIST_THRESHOLD + 1)
 
         result = persist_if_large("s1", "tool_" + "x" * 300, content)
@@ -193,7 +193,7 @@ class TestLoadPersistedResult:
     def test_persist_large_result_rejects_empty_tool_call_id(
         self, tmp_path, monkeypatch
     ):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         big = "x" * (MAX_RESULT_SIZE_CHARS + 1)
 
         with pytest.raises(ValueError, match="Invalid tool_call_id"):
@@ -204,7 +204,7 @@ class TestLoadPersistedResult:
     def test_persist_large_result_rejects_whitespace_tool_call_id(
         self, tmp_path, monkeypatch
     ):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         big = "x" * (MAX_RESULT_SIZE_CHARS + 1)
 
         with pytest.raises(ValueError, match="Invalid tool_call_id"):
@@ -216,7 +216,7 @@ class TestLoadPersistedResult:
         assert load_persisted_result("no_session", "no_call") is None
 
     def test_long_tool_call_ids_do_not_collide_after_capping(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FORGECC_SESSION_DIR", str(tmp_path))
+        monkeypatch.setenv("FORGEAGENT_SESSION_DIR", str(tmp_path))
         big_a = "a" * (MAX_RESULT_SIZE_CHARS + 1)
         big_b = "b" * (MAX_RESULT_SIZE_CHARS + 1)
         first_id = "call_" + "x" * 300 + "a"

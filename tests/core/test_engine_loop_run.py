@@ -3,9 +3,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from forgecc.core import engine_loop
-from forgecc.core.engine_loop import run_agent_loop
-from forgecc.core.permissions import PermissionMode
+from forgeagent.core import engine_loop
+from forgeagent.core.engine_loop import run_agent_loop
+from forgeagent.core.permissions import PermissionMode
 
 
 def _completion(text: str, invocations: list | None = None) -> MagicMock:

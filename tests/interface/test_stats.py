@@ -2,7 +2,7 @@
 
 
 def test_count_workspace_lines_groups_by_extension(tmp_path):
-    from forgecc.interface.stats import count_workspace_lines
+    from forgeagent.interface.stats import count_workspace_lines
 
     (tmp_path / "a.py").write_text("one\ntwo\n", encoding="utf-8")
     (tmp_path / "README").write_text("title\n", encoding="utf-8")
@@ -20,7 +20,7 @@ def test_count_workspace_lines_groups_by_extension(tmp_path):
 
 
 def test_count_workspace_lines_skips_generated_directories(tmp_path):
-    from forgecc.interface.stats import count_workspace_lines
+    from forgeagent.interface.stats import count_workspace_lines
 
     (tmp_path / "main.py").write_text("ok\n", encoding="utf-8")
     (tmp_path / "__pycache__").mkdir()
@@ -36,7 +36,7 @@ def test_count_workspace_lines_skips_generated_directories(tmp_path):
 
 
 def test_sorted_extensions_orders_by_line_count_descending(tmp_path):
-    from forgecc.interface.stats import count_workspace_lines
+    from forgeagent.interface.stats import count_workspace_lines
 
     (tmp_path / "a.py").write_text("1\n", encoding="utf-8")
     (tmp_path / "b.md").write_text("1\n2\n", encoding="utf-8")

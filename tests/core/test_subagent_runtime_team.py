@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from forgecc.core.subagent_runtime import (
+from forgeagent.core.subagent_runtime import (
     collect_team_results,
     run_sub_agent_team,
     team_token_totals,

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from forgecc.core.engine_loop import generate_with_context_recovery
-from forgecc.core.errors import ContextWindowError
+from forgeagent.core.engine_loop import generate_with_context_recovery
+from forgeagent.core.errors import ContextWindowError
 
 
 class Provider:

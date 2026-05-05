@@ -4,7 +4,7 @@ import json
 
 
 def test_render_transcript_markdown_includes_session_count_and_messages():
-    from forgecc.interface.export import render_transcript_markdown
+    from forgeagent.interface.export import render_transcript_markdown
 
     markdown = render_transcript_markdown(
         "s1",
@@ -22,7 +22,7 @@ def test_render_transcript_markdown_includes_session_count_and_messages():
 
 
 def test_render_events_jsonl_outputs_one_json_object_per_line():
-    from forgecc.interface.export import render_events_jsonl
+    from forgeagent.interface.export import render_events_jsonl
 
     events = [
         {"type": "checkpoint", "session_id": "s1"},
@@ -36,6 +36,6 @@ def test_render_events_jsonl_outputs_one_json_object_per_line():
 
 
 def test_render_events_jsonl_returns_empty_string_for_no_events():
-    from forgecc.interface.export import render_events_jsonl
+    from forgeagent.interface.export import render_events_jsonl
 
     assert render_events_jsonl([]) == ""

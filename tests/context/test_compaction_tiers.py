@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from forgecc.context.compaction_tiers import (
+from forgeagent.context.compaction_tiers import (
     MICROCOMPACT_IDLE_S,
     SNIP_PLACEHOLDER,
     _build_tool_name_map,

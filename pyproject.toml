@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "forgecc"
+name = "forgeagent"
 version = "0.1.0"
-description = "A from-scratch Python reconstruction of the Claude Code agent architecture"
+description = "An OpenAI-compatible coding agent with tools, memory, skills, and sub-agents"
 license = "MIT"
 requires-python = ">=3.11"
-authors = [{ name = "ForgeCC Contributors" }]
+authors = [{ name = "ForgeAgent Contributors" }]
 keywords = ["agent", "coding", "cli", "llm"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["forgecc"]
+packages = ["forgeagent"]
 
 [project.optional-dependencies]
 test = [
@@ -39,4 +39,4 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [project.scripts]
-forgecc = "forgecc.interface.repl:main"
+forgeagent = "forgeagent.interface.repl:main"

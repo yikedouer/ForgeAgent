@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from forgecc.context import checkpoint as ckpt
-from forgecc.core.engine_session import (
+from forgeagent.context import checkpoint as ckpt
+from forgeagent.core.engine_session import (
     save_engine_checkpoint,
     restore_engine_checkpoint,
 )
@@ -38,14 +38,14 @@ def test_restore_engine_checkpoint_flags_model_switch_when_checkpoint_differs():
     snapshot = ckpt.Checkpoint(
         session_id="session-a",
         messages=[],
-        model="deepseek-chat",
+        model="custom-model",
         tokens_in=1,
         tokens_out=2,
     )
 
     restored = restore_engine_checkpoint(
         "session-a",
-        current_model="qwen3.6-plus",
+        current_model="base-model",
         load=lambda session_id: snapshot,
     )
 
@@ -57,12 +57,12 @@ def test_restore_engine_checkpoint_can_preserve_current_model():
     snapshot = ckpt.Checkpoint(
         session_id="session-a",
         messages=[],
-        model="deepseek-chat",
+        model="custom-model",
     )
 
     restored = restore_engine_checkpoint(
         "session-a",
-        current_model="qwen3.6-plus",
+        current_model="base-model",
         restore_model=False,
         load=lambda session_id: snapshot,
     )

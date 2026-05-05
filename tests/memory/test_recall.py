@@ -1,4 +1,4 @@
-"""语义召回测试 — forgecc.memory.recall"""
+"""语义召回测试 — forgeagent.memory.recall"""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from forgecc.memory.recall import (
+from forgeagent.memory.recall import (
     scan_memory_headers,
     format_memory_manifest,
     select_relevant_memories,
@@ -20,7 +20,7 @@ from forgecc.memory.recall import (
     MAX_MEMORY_FILES,
     MAX_MEMORY_BYTES_PER_FILE,
 )
-from forgecc.memory.store import save_memory
+from forgeagent.memory.store import save_memory
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -72,7 +72,7 @@ class TestScanMemoryHeaders:
             raise AssertionError("get_memory_dir should not be called")
 
         monkeypatch.setattr(
-            "forgecc.memory.recall.get_memory_dir",
+            "forgeagent.memory.recall.get_memory_dir",
             fail_get_memory_dir,
         )
 

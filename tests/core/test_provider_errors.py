@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from openai import APIConnectionError, RateLimitError
 
-from forgecc.core.providers import _is_context_window_error, _should_retry
+from forgeagent.core.providers import _is_context_window_error, _should_retry
 
 
 def test_context_window_error_detected_from_message() -> None:

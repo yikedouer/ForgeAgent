@@ -1,4 +1,4 @@
-"""技能系统测试 — forgecc.skills (frontmatter + playbook)"""
+"""技能系统测试 — forgeagent.skills (frontmatter + playbook)"""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from forgecc.frontmatter import parse_frontmatter, Frontmatter
-from forgecc.skills import playbook as pb_mod
-from forgecc.skills.playbook import (
+from forgeagent.frontmatter import parse_frontmatter, Frontmatter
+from forgeagent.skills import playbook as pb_mod
+from forgeagent.skills.playbook import (
     Playbook,
     discover,
     invalidate_cache,
@@ -33,7 +33,7 @@ def reset_playbook_cache():
 
 
 # ═══════════════════════════════════════════════════════════════
-# 1. forgecc/frontmatter.py
+# 1. forgeagent/frontmatter.py
 # ═══════════════════════════════════════════════════════════════
 
 class TestSkillFrontmatter:
@@ -145,7 +145,7 @@ class TestLoadOne:
 class TestDiscoverAndFind:
     def test_discover_scans(self, tmp_path, monkeypatch):
         # 设置项目级技能目录
-        skills_dir = tmp_path / ".forgecc" / "skills" / "test_skill"
+        skills_dir = tmp_path / ".forgeagent" / "skills" / "test_skill"
         skills_dir.mkdir(parents=True)
         (skills_dir / "SKILL.md").write_text(
             "---\nname: test_skill\ndescription: A skill\n---\nBody",
@@ -159,7 +159,7 @@ class TestDiscoverAndFind:
         assert any(p.name == "test_skill" for p in playbooks)
 
     def test_find_found(self, tmp_path, monkeypatch):
-        skills_dir = tmp_path / ".forgecc" / "skills" / "findme"
+        skills_dir = tmp_path / ".forgeagent" / "skills" / "findme"
         skills_dir.mkdir(parents=True)
         (skills_dir / "SKILL.md").write_text(
             "---\nname: findme\ndescription: Found\n---\nBody",
@@ -207,7 +207,7 @@ class TestResolveAndInvoke:
         assert result == "Do my task in /skills/test"
 
     def test_invoke_found(self, tmp_path, monkeypatch):
-        skills_dir = tmp_path / ".forgecc" / "skills" / "greet"
+        skills_dir = tmp_path / ".forgeagent" / "skills" / "greet"
         skills_dir.mkdir(parents=True)
         (skills_dir / "SKILL.md").write_text(
             "---\nname: greet\ndescription: Greet\n---\nHello $ARGUMENTS",
@@ -238,7 +238,7 @@ class TestDescribeForDirective:
         assert describe_for_directive() == ""
 
     def test_with_skills(self, tmp_path, monkeypatch):
-        skills_dir = tmp_path / ".forgecc" / "skills" / "demo"
+        skills_dir = tmp_path / ".forgeagent" / "skills" / "demo"
         skills_dir.mkdir(parents=True)
         (skills_dir / "SKILL.md").write_text(
             "---\nname: demo\ndescription: Demo skill\nwhen-to-use: When needed\n---\nBody",

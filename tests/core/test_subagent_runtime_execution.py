@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from forgecc.core.subagent_runtime import run_configured_sub_agent
-from forgecc.core.permissions import PermissionMode
-from forgecc.core.settings import Settings
+from forgeagent.core.subagent_runtime import run_configured_sub_agent
+from forgeagent.core.permissions import PermissionMode
+from forgeagent.core.settings import Settings
 
 
 def _settings() -> Settings:
     return Settings(
         api_key="test-key",
         base_url="https://test.example/v1",
-        model="qwen3.6-plus",
+        model="base-model",
         context_budget=128000,
         max_rounds=60,
         workspace="/tmp/workspace",
@@ -81,7 +81,7 @@ def test_run_configured_sub_agent_builds_runtime_engine_and_record():
     assert result.tokens_in == 11
     assert result.tokens_out == 7
     assert result.error is None
-    assert result.model == "qwen3.6-plus"
+    assert result.model == "base-model"
     assert result.uses_parent_provider is True
 
     assert len(FakeEngine.instances) == 1

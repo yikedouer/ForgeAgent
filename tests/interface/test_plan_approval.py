@@ -16,7 +16,7 @@ class FakeConsole:
 
 
 def test_plan_approval_choice_clear_and_execute():
-    from forgecc.interface.plan_approval import build_plan_approval_fn
+    from forgeagent.interface.plan_approval import build_plan_approval_fn
 
     approval = build_plan_approval_fn(FakeConsole(["1"]))
 
@@ -24,7 +24,7 @@ def test_plan_approval_choice_clear_and_execute():
 
 
 def test_plan_approval_choice_manual_execute():
-    from forgecc.interface.plan_approval import build_plan_approval_fn
+    from forgeagent.interface.plan_approval import build_plan_approval_fn
 
     approval = build_plan_approval_fn(FakeConsole(["3"]))
 
@@ -32,7 +32,7 @@ def test_plan_approval_choice_manual_execute():
 
 
 def test_plan_approval_choice_keep_planning_collects_feedback():
-    from forgecc.interface.plan_approval import build_plan_approval_fn
+    from forgeagent.interface.plan_approval import build_plan_approval_fn
 
     approval = build_plan_approval_fn(FakeConsole(["4", "more tests"]))
 
@@ -43,7 +43,7 @@ def test_plan_approval_choice_keep_planning_collects_feedback():
 
 
 def test_plan_approval_invalid_choice_reprompts():
-    from forgecc.interface.plan_approval import build_plan_approval_fn
+    from forgeagent.interface.plan_approval import build_plan_approval_fn
 
     console = FakeConsole(["bad", "2"])
     approval = build_plan_approval_fn(console)

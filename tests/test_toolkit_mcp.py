@@ -1,7 +1,7 @@
 """MCP-to-toolkit bridge tests."""
 
-from forgecc.core.mcp import MCPTool
-from forgecc.toolkit_mcp import build_mcp_tool_specs
+from forgeagent.core.mcp import MCPTool
+from forgeagent.toolkit_mcp import build_mcp_tool_specs
 
 
 class FakeMCPClient:
@@ -43,8 +43,8 @@ def test_built_mcp_runner_routes_to_original_remote_name_and_formats_text():
 
     spec = build_mcp_tool_specs("docs", client)[0]
 
-    assert spec.handler(query="ForgeCC") == "found"
-    assert client.calls == [("search-docs", {"query": "ForgeCC"})]
+    assert spec.handler(query="ForgeAgent") == "found"
+    assert client.calls == [("search-docs", {"query": "ForgeAgent"})]
 
 
 def test_built_mcp_runner_serializes_non_text_result():

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from forgecc.core.engine_loop import record_completion_usage
+from forgeagent.core.engine_loop import record_completion_usage
 
 
 def test_record_completion_usage_updates_counters_and_returns_log_fields():

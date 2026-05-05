@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import forgecc.toolkit as tk
-from forgecc.toolkit import (
+import forgeagent.toolkit as tk
+from forgeagent.toolkit import (
     ToolSpec,
     ToolResult,
     tool,
@@ -20,8 +20,8 @@ from forgecc.toolkit import (
     run_one,
     run_batch,
 )
-from forgecc.core.hooks import clear_hooks, register_hook
-from forgecc.core.mcp import MCPTool
+from forgeagent.core.hooks import clear_hooks, register_hook
+from forgeagent.core.mcp import MCPTool
 
 
 # ── 辅助：注册一个测试工具 ────────────────────────────────
@@ -950,11 +950,11 @@ class TestCatalogLookupSchemas:
         ], result={"content": [{"type": "text", "text": "found it"}]})
         tk.register_mcp_tools("docs", client)
 
-        result = run_one("c1", "mcp__docs__search_docs", {"query": "ForgeCC"})
+        result = run_one("c1", "mcp__docs__search_docs", {"query": "ForgeAgent"})
 
         assert result.ok is True
         assert result.output == "found it"
-        assert client.calls == [("search-docs", {"query": "ForgeCC"})]
+        assert client.calls == [("search-docs", {"query": "ForgeAgent"})]
 
     def test_mcp_tool_execution_serializes_non_text_result(self):
         client = FakeMCPClient([
