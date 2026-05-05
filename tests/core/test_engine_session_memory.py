@@ -3,7 +3,7 @@ from __future__ import annotations
 from concurrent.futures import Future
 from dataclasses import dataclass
 
-from forgecc.core.engine_memory import inject_recalled_memories, maybe_start_memory_prefetch
+from forgecc.core.engine_session import inject_recalled_memories, maybe_start_memory_prefetch
 
 
 @dataclass

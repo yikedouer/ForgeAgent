@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from forgecc.core.engine_tool_execution import execute_normal_tool_calls
+from forgecc.core.engine_tools import execute_normal_tool_calls
 from forgecc.toolkit import InstrumentResult
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from forgecc.core.engine_subagent import build_sub_agent_runtime
+from forgecc.core.engine_agents import build_sub_agent_runtime
 from forgecc.core.permissions import PermissionMode
 from forgecc.core.settings import Settings
 

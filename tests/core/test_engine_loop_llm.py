@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from forgecc.core.engine_llm import generate_with_context_recovery
+from forgecc.core.engine_loop import generate_with_context_recovery
 from forgecc.core.errors import ContextWindowError
 
 

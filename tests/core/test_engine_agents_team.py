@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from forgecc.core.engine_team import (
+from forgecc.core.engine_agents import (
     collect_team_results,
     run_sub_agent_team,
     team_token_totals,

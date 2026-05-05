@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from forgecc.core.engine_prompt import (
+from forgecc.core.engine_loop import (
     build_directive_text,
     build_wire_messages,
     select_tool_schemas,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from forgecc.core.engine_state import reset_conversation_state
+from forgecc.core.engine_session import reset_conversation_state
 
 
 def test_reset_conversation_state_clears_transcript_and_runtime_fields():

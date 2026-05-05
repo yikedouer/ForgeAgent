@@ -63,7 +63,8 @@ interface/ → core/ → toolkit.py ← instruments/
 
 ## 文件组织
 
-- 单文件不超过 300 行（当前最大 toolkit.py 293 行；engine.py 已降至 297 行，compaction.py 已降至 169 行）
+- 单文件行数是软约束，不用为压行数拆出 20-40 行的碎模块；超过约 350 行时需要有清晰职责边界
+- 当前 Engine 以职责聚合为准：`engine_loop.py` 299 行、`engine_tools.py` 156 行、`engine_agents.py` 409 行、`engine_session.py` 365 行
 - 相关功能放同一目录（如 memory/ 下的 store/recall/prefetch/frontmatter）
 - `__init__.py` 只做导出，不放逻辑
 

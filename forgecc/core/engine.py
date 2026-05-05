@@ -37,29 +37,36 @@ from .log import get_logger
 from .hooks import load_hook_file
 from .mcp import MCPClient, MCPServerManager, StdioMCPTransport
 from .runtime import RuntimeRecorder
-from .engine_checkpoint_api import EngineCheckpointApiMixin
-from .engine_compaction import ManualCompactionReport, run_manual_compaction
-from .engine_init import initialize_engine_runtime, start_configured_runtime
-from .engine_llm import generate_with_context_recovery
-from .engine_memory import inject_recalled_memories, maybe_start_memory_prefetch
-from .engine_plan_api import EnginePlanApiMixin
-from .engine_plan_tools import append_plan_tool_results
-from .engine_round import prepare_round_inputs
-from .engine_run import run_agent_loop
-from .engine_state import reset_conversation_state
-from .engine_agent_execution import run_configured_sub_agent
-from .engine_subagent_entry import (
+from .engine_agents import (
     execute_sub_agent_entry,
     execute_sub_agents_parallel_entry,
+    run_configured_sub_agent,
+    run_sub_agent_team,
 )
-from .engine_team import run_sub_agent_team
-from .engine_tool_calls import (
+from .engine_loop import (
+    generate_with_context_recovery,
+    prepare_round_inputs,
+    record_completion_usage,
+    run_agent_loop,
+)
+from .engine_session import (
+    EngineCheckpointApiMixin,
+    EnginePlanApiMixin,
+    ManualCompactionReport,
+    initialize_engine_runtime,
+    inject_recalled_memories,
+    maybe_start_memory_prefetch,
+    reset_conversation_state,
+    run_manual_compaction,
+    start_configured_runtime,
+)
+from .engine_tools import (
+    append_plan_tool_results,
     build_tool_calls,
+    execute_normal_tool_calls,
     notify_instrument_callbacks,
     split_plan_tool_calls,
 )
-from .engine_tool_execution import execute_normal_tool_calls
-from .engine_usage import record_completion_usage
 
 # 确保首次导入时注册所有工具
 from .. import instruments as _instruments  # noqa: F401

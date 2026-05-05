@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from forgecc.core.engine_round import prepare_round_inputs
+from forgecc.core.engine_loop import prepare_round_inputs
 
 
 def test_prepare_round_inputs_compacts_builds_messages_injects_memory_and_selects_schemas():

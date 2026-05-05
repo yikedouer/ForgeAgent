@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from forgecc.context import checkpoint as ckpt
-from forgecc.core.engine_checkpoint import (
+from forgecc.core.engine_session import (
     save_engine_checkpoint,
     restore_engine_checkpoint,
 )

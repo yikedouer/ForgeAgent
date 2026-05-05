@@ -25,25 +25,11 @@ tests/
 │   ├── test_settings.py  # 配置系统测试
 │   ├── test_mcp.py       # MCP 配置/协议/生命周期测试
 │   ├── test_runtime.py   # runtime 事件记录测试
-│   ├── test_engine_agent_execution.py # 子 Agent 执行编排测试
-│   ├── test_engine_agent_record.py # 子 Agent 运行记录测试
-│   ├── test_engine_checkpoint.py # Engine checkpoint 保存/恢复测试
-│   ├── test_engine_compaction.py # Engine 手动压缩测试
-│   ├── test_engine_llm.py # Engine LLM 调用恢复测试
-│   ├── test_engine_memory.py # Engine 记忆注入测试
-│   ├── test_engine_plan_tools.py # 计划模式工具结果回填测试
-│   ├── test_engine_prompt.py # Engine prompt/schema 构建测试
-│   ├── test_engine_round.py # Engine 单轮输入准备测试
-│   ├── test_engine_run.py # Engine loop helper 测试
-│   ├── test_engine_state.py # Engine 会话状态重置测试
-│   ├── test_engine_subagent.py # 子 Agent runtime 准备测试
+│   ├── test_engine_loop_*.py # Engine loop/prompt/LLM/usage 测试
+│   ├── test_engine_tools_*.py # 工具调用、计划工具、日志、结果回填测试
+│   ├── test_engine_agents_*.py # 子 Agent runtime、记录、执行、team 测试
+│   ├── test_engine_session_*.py # checkpoint、压缩、记忆、状态测试
 │   ├── test_subagent_discovery.py # 自定义 Agent 发现测试
-│   ├── test_engine_team.py # team 子 Agent 结果归集测试
-│   ├── test_engine_tool_calls.py # 工具调用准备测试
-│   ├── test_engine_tool_execution.py # 工具执行编排测试
-│   ├── test_engine_tool_logging.py # 工具日志格式化测试
-│   ├── test_engine_tool_results.py # 工具结果处理测试
-│   ├── test_engine_usage.py # Engine token 统计测试
 │   ├── test_subagent_tools.py # 子 Agent 工具集解析测试
 │   └── ...
 ├── instruments/

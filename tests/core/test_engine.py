@@ -837,7 +837,7 @@ class TestManualCompaction:
             {"role": "assistant", "content": "reply"},
         ]
 
-        from forgecc.core.engine_compaction import ManualCompactionReport
+        from forgecc.core.engine_session import ManualCompactionReport
 
         compaction_result = MagicMock()
         compaction_result.performed = True

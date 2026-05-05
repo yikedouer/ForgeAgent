@@ -279,7 +279,11 @@ ForgeCC/
 │   ├── toolkit_schema_value.py (277) # 递归 JSON Schema value 校验
 │   │
 │   ├── core/                        # ── 引擎内核 ──
-│   │   ├── engine.py         (297)  #   Agent 核心门面 + public API
+│   │   ├── engine.py         (304)  #   Agent 核心门面 + public API
+│   │   ├── engine_loop.py    (299)  #   Agent 主循环、prompt 构建、LLM 恢复、用量统计
+│   │   ├── engine_tools.py   (156)  #   工具调用准备、计划工具、执行日志、结果回填
+│   │   ├── engine_agents.py  (409)  #   子 Agent runtime、运行记录、Team 并行与入口 API
+│   │   ├── engine_session.py (365)  #   Engine 初始化、记忆注入、压缩、checkpoint、状态 API
 │   │   ├── providers.py      (289)  #   LLM 适配层（OpenAI / AzureOpenAI + 流式）
 │   │   ├── provider_errors.py (40)  #   Provider 错误分类 + 重试判定
 │   │   ├── provider_types.py  (50)  #   Completion / Invocation 响应类型
@@ -294,28 +298,6 @@ ForgeCC/
 │   │   ├── hooks.py           (78)  #   运行时 Hook 注册与分发
 │   │   ├── errors.py          (74)  #   结构化错误层级
 │   │   ├── runtime.py         (41)  #   transcript 追加 + runtime JSONL event 记录
-│   │   ├── engine_agent_execution.py (115) # 子 Agent 构造/运行/记录编排
-│   │   ├── engine_agent_record.py (74) # 子 Agent 运行记录创建/收尾
-│   │   ├── engine_checkpoint_api.py (41) # Engine checkpoint/model public API
-│   │   ├── engine_checkpoint.py  (54) # Engine checkpoint 保存/恢复判定
-│   │   ├── engine_compaction.py  (50) # Engine 手动压缩报告
-│   │   ├── engine_init.py   (60)  #   Engine runtime 组件装配
-│   │   ├── engine_llm.py     (45)  #   Engine LLM 调用 + 上下文恢复
-│   │   ├── engine_memory.py   (94)  #   Engine 记忆预取 + 注入结果计算
-│   │   ├── engine_plan_api.py (74) #  Engine 计划模式 public API
-│   │   ├── engine_plan_tools.py (28) # 计划模式工具结果回填
-│   │   ├── engine_prompt.py   (53)  #   系统提示词、投影视图和工具 schema 选择
-│   │   ├── engine_round.py    (67)  #   单轮压缩、prompt、消息、schema 准备
-│   │   ├── engine_run.py     (130)  #   Agent 单轮循环编排
-│   │   ├── engine_state.py    (27)  #   Engine 会话状态重置
-│   │   ├── engine_subagent.py (50)  #   子 Agent settings/provider 准备
-│   │   ├── engine_subagent_entry.py (131) # Engine 子 Agent public API
-│   │   ├── engine_team.py     (74)  #   team 子 Agent 并行执行与结果归集
-│   │   ├── engine_tool_calls.py (48) # 工具调用准备与计划工具拆分
-│   │   ├── engine_tool_execution.py (51) # 普通工具执行、持久化、回填
-│   │   ├── engine_tool_logging.py (23) # 工具调用/结果日志格式化
-│   │   ├── engine_tool_results.py (37) # 工具结果持久化与回填消息
-│   │   ├── engine_usage.py   (33)  #   LLM completion token/time 统计
 │   │   ├── plan_mode.py      (293)  #   计划模式（工具定义 + 状态机 + 提示词）
 │   │   ├── subagent.py       (246)  #   子 Agent 内置类型 + 配置入口
 │   │   ├── subagent_discovery.py (84) # 自定义 Agent 发现 + frontmatter
@@ -534,9 +516,9 @@ engine.execute_sub_agents_parallel([
 - 错误映射：401→AuthenticationError, 429→RateLimitedError, 上下文超限→ContextWindowError
 - 指数退避重试：可重试错误（429/502/503）最多重试 4 次
 
-### `core/engine.py` — Engine 门面（297 行）
+### `core/engine.py` — Engine 门面（304 行）
 
-这是核心编排入口，保留 `Engine` 公共 API、状态初始化和兼容注入点；主循环已拆到 `core/engine_run.py`。`Engine.run()` 的伪代码：
+这是核心编排入口，保留 `Engine` 公共 API 和依赖注入点；具体职责按运行时边界收拢到 4 个模块：`engine_loop.py`、`engine_tools.py`、`engine_agents.py`、`engine_session.py`。`Engine.run()` 的伪代码：
 
 ```python
 def run(self, user_input):
@@ -549,7 +531,7 @@ def run(self, user_input):
     )
 ```
 
-`engine_run.py` 的主循环：
+`engine_loop.py` 的主循环：
 
 ```python
 transcript.append(user_msg)
@@ -737,27 +719,15 @@ toolkit.run_one(call_id, name, args)
 | 23 | `core/plan_mode.py` | 293 | 计划模式——只读沙箱 + 四选项审批 |
 | 23 | `interface/cli_startup.py` | 74 | CLI 启动参数校验——resume/latest、输出格式、Settings 覆盖 |
 | 24 | `interface/export_command.py` | 81 | 离线 checkpoint export 命令——Markdown/JSON/JSONL |
-| 25 | `core/engine_agent_record.py` | 74 | 子 Agent 运行记录——创建/收尾失败降级 |
-| 26 | `core/engine_agent_execution.py` | 115 | 子 Agent 执行编排——runtime、工具集、运行记录、异常转结果 |
-| 27 | `core/engine_checkpoint.py` | 54 | Engine checkpoint 保存/恢复——快照构造 + 模型切换判定 |
-| 28 | `core/engine_memory.py` | 94 | Engine 记忆——主 Agent 预取、prefetch 消费、浮现路径、预算统计 |
-| 29 | `core/engine_plan_tools.py` | 28 | 计划工具结果回填——执行计划工具、fallback call id、tool 消息追加 |
-| 30 | `core/engine_prompt.py` | 53 | Engine prompt 构建——系统提示词、投影视图、工具 schema 选择 |
-| 31 | `core/engine_round.py` | 67 | 单轮输入准备——压缩、directive、wire messages、记忆注入、schema 选择 |
-| 32 | `core/engine_llm.py` | 45 | Engine LLM 调用——Provider 调用、上下文超限裁剪重试 |
-| 33 | `core/engine_state.py` | 27 | Engine 状态重置——清空会话、重置压缩/记忆/持久化跟踪 |
-| 34 | `core/engine_subagent.py` | 50 | 子 Agent runtime——模型覆盖、Provider 重建、计划模式继承 |
-| 35 | `core/engine_team.py` | 74 | Team 并行执行——线程池分派、完成顺序归位、线程错误转换、token 汇总 |
-| 36 | `core/engine_tool_calls.py` | 48 | 工具调用准备——invocation 提取、计划工具拆分、回调失败降级 |
-| 37 | `core/engine_tool_execution.py` | 51 | 工具执行编排——日志、批量执行、大结果持久化、transcript 回填 |
-| 38 | `core/engine_tool_logging.py` | 23 | 工具日志格式化——参数预览、结果状态和输出长度 |
-| 39 | `core/engine_tool_results.py` | 37 | 工具结果处理——大结果持久化、失败降级、tool 消息构造 |
-| 40 | `core/engine_usage.py` | 33 | Token 统计——last input、API 调用时间、累计用量和日志字段 |
-| 41 | `interface/one_shot.py` | 54 | CLI 单次执行——text/JSON 输出、token 用量、Engine 资源关闭 |
-| 42 | `interface/repl.py` | 235 | CLI 交互壳层——输入分派、Engine 生命周期、权限确认回调 |
-| 43 | `interface/repl_commands.py` | 256 | REPL 命令集——12 个命令 + Skill 调用 + 计划模式命令 |
+| 25 | `core/engine_loop.py` | 299 | Agent 主循环——单轮输入准备、prompt/schema、LLM 恢复、token 统计 |
+| 26 | `core/engine_tools.py` | 156 | 工具执行链——工具调用准备、计划工具结果、日志、持久化、transcript 回填 |
+| 27 | `core/engine_agents.py` | 409 | 子 Agent runtime——运行记录、单 Agent 执行、Team 并行、入口 API |
+| 28 | `core/engine_session.py` | 365 | 会话层——初始化、记忆注入、手动压缩、checkpoint、状态重置、计划/模型 API |
+| 29 | `interface/one_shot.py` | 54 | CLI 单次执行——text/JSON 输出、token 用量、Engine 资源关闭 |
+| 30 | `interface/repl.py` | 235 | CLI 交互壳层——输入分派、Engine 生命周期、权限确认回调 |
+| 31 | `interface/repl_commands.py` | 256 | REPL 命令集——12 个命令 + Skill 调用 + 计划模式命令 |
 
-> 学完全部 43 个文件（约 9,000 行），你就完整理解了一个生产级 Coding Agent 的架构。
+> 学完全部 31 个核心路径（约 9,000 行源码），你就完整理解了一个生产级 Coding Agent 的架构。
 
 ---
 
@@ -806,24 +776,10 @@ python -m pytest tests/ -v
 | provider errors | `core/test_provider_errors.py` | 2 | 上下文窗口错误识别、限流/连接重试判定 |
 | provider types | `core/test_provider_types.py` | 2 | Completion/Invocation assistant 消息重建、异常参数 fallback |
 | runtime | `core/test_runtime.py` | 3 | transcript 追加、主 Agent JSONL 事件、子 Agent 事件跳过、失败降级 |
-| engine agent execution | `core/test_engine_agent_execution.py` | 2 | 子 Agent 构造运行、工具集过滤、运行记录收尾、异常转结果 |
-| engine agent record | `core/test_engine_agent_record.py` | 4 | 子 Agent 运行记录创建、创建/收尾失败降级、空记录跳过 |
-| engine checkpoint | `core/test_engine_checkpoint.py` | 3 | checkpoint 快照构造、恢复时模型切换判定、保留当前模型 |
-| engine compaction | `core/test_engine_compaction.py` | 1 | 手动压缩前后统计与 report 构建 |
-| engine llm | `core/test_engine_llm.py` | 3 | LLM 调用成功路径、上下文超限裁剪重试、二次超限传播 |
-| engine memory | `core/test_engine_memory.py` | 5 | 主 Agent 记忆预取、子 Agent 跳过预取、prefetch 注入和异常降级 |
-| engine plan tools | `core/test_engine_plan_tools.py` | 2 | 计划工具执行、tool 消息回填、空 call id fallback |
-| engine prompt | `core/test_engine_prompt.py` | 4 | 自定义/计划提示词、投影视图消息构建、工具 schema 选择 |
-| engine round | `core/test_engine_round.py` | 2 | 单轮压缩、提示词、wire messages、记忆注入、schema 选择 |
-| engine run | `core/test_engine_run.py` | 1 | Agent loop helper 纯文本收束、autosave、prefetch 状态写回 |
-| engine state | `core/test_engine_state.py` | 1 | 清空会话时重置 transcript、压缩、记忆和持久化跟踪状态 |
-| engine subagent | `core/test_engine_subagent.py` | 3 | 子 Agent 模型覆盖、Provider 复用/重建、计划模式继承 |
-| engine team | `core/test_engine_team.py` | 5 | team 并行执行分派、原始顺序归集、线程异常转换、token 汇总 |
-| engine tool calls | `core/test_engine_tool_calls.py` | 3 | 工具调用元组构建、计划工具拆分、工具回调异常降级 |
-| engine tool execution | `core/test_engine_tool_execution.py` | 2 | 普通工具日志、批量执行、持久化、tool 消息回填和失败降级 |
-| engine tool logging | `core/test_engine_tool_logging.py` | 3 | 工具调用参数预览、长值截断、工具结果状态日志格式 |
-| engine tool results | `core/test_engine_tool_results.py` | 3 | 工具结果持久化成功/失败、tool transcript 消息构造 |
-| engine usage | `core/test_engine_usage.py` | 1 | LLM completion 更新 last token/time、累计 token 和日志字段 |
+| engine loop | `core/test_engine_loop_*.py` | 11 | Agent loop、prompt/schema、单轮准备、LLM 恢复、token 统计 |
+| engine tools | `core/test_engine_tools_*.py` | 13 | 工具调用元组、计划工具、执行日志、持久化、tool transcript 消息 |
+| engine agents | `core/test_engine_agents_*.py` | 14 | 子 Agent runtime、运行记录、单 Agent 执行、Team 并行和 token 汇总 |
+| engine session | `core/test_engine_session_*.py` | 10 | checkpoint、手动压缩、记忆预取/注入、会话状态重置 |
 | subagent | `core/test_subagent.py` | 23 | 内置/自定义 Agent 配置、描述生成、Agent store |
 | subagent discovery | `core/test_subagent_discovery.py` | 3 | frontmatter、allowed-tools、多层目录覆盖 |
 | subagent tools | `core/test_subagent_tools.py` | 4 | 子 Agent 工具集解析、调用白名单、递归工具屏蔽 |

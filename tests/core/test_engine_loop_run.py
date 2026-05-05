@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from forgecc.core.engine_run import run_agent_loop
+from forgecc.core.engine_loop import run_agent_loop
 from forgecc.core.permissions import PermissionMode
 
 
