@@ -3,7 +3,6 @@
 from .config import MCPServerConfig, parse_mcp_servers
 from .lifecycle import MCPServerManager
 from .protocol import (
-    MCP_PROTOCOL_VERSION,
     MCPClient,
     MCPProtocolError,
     MCPTool,
@@ -12,7 +11,6 @@ from .protocol import (
 from .stdio import StdioMCPTransport
 
 __all__ = [
-    "MCP_PROTOCOL_VERSION",
     "MCPClient",
     "MCPProtocolError",
     "MCPServerConfig",

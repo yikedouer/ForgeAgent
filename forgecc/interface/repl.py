@@ -1,17 +1,14 @@
-"""交互式 REPL——面向用户的终端界面。
-
-基于标准库 cmd.Cmd 实现零依赖 readline 支持
-（历史记录、方向键、Ctrl-C 处理）。Rich 仅用于彩色输出，
-不用于输入。
-"""
+"""交互式 REPL——面向用户的终端界面。"""
 
 from __future__ import annotations
 
 import argparse
-import cmd
 import os
 import sys
 
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.history import InMemoryHistory
 from rich.console import Console
 from rich.panel import Panel
 
@@ -35,6 +32,26 @@ from .cli_startup import (
 
 log = get_logger(__name__)
 console = Console()
+
+COMMANDS = (
+    "help",
+    "save",
+    "sessions",
+    "usage",
+    "cost",
+    "skills",
+    "plan",
+    "model",
+    "compact",
+    "clear",
+    "memory",
+    "remember",
+    "diff",
+    "export",
+    "stats",
+    "exit",
+    "quit",
+)
 
 
 # ── 参数解析 ──────────────────────────────────────────────
@@ -92,16 +109,29 @@ def _close_engine(engine: object) -> None:
 
 # ── REPL ────────────────────────────────────────────────────
 
-class ForgeREPL(ForgeReplCommandMixin, cmd.Cmd):
+class ForgeCompleter(Completer):
+    def get_completions(self, document, _complete_event):
+        text = document.text_before_cursor.lstrip()
+        if " " in text or text.startswith("/"):
+            return
+        for name in COMMANDS:
+            if name.startswith(text):
+                yield Completion(name, start_position=-len(text))
+
+
+class ForgeREPL(ForgeReplCommandMixin):
 
     def __init__(self, engine: Engine):
-        super().__init__()
         self.engine = engine
         self._console = console
         self._on_token = _on_token
         self._on_tool = _on_tool
         self._close_engine = _close_engine
         self.prompt = "\nYou > "
+        self._session = PromptSession(
+            history=InMemoryHistory(),
+            completer=ForgeCompleter(),
+        )
         self._setup_plan_approval()
 
     def _setup_plan_approval(self) -> None:
@@ -112,6 +142,10 @@ class ForgeREPL(ForgeReplCommandMixin, cmd.Cmd):
         """任何非命令输入都作为用户消息处理。"""
         if not line.strip():
             return
+
+        handled, should_exit = self._dispatch_command(line)
+        if handled:
+            return True if should_exit else None
 
         # 斜杠命令技能调用：/skillname [args]
         if line.startswith("/"):
@@ -141,6 +175,27 @@ class ForgeREPL(ForgeReplCommandMixin, cmd.Cmd):
 
     def emptyline(self) -> None:
         pass  # 空行输入时不重复上一条命令
+
+    def _dispatch_command(self, line: str) -> tuple[bool, bool]:
+        name, _, arg = line.strip().partition(" ")
+        command = getattr(self, f"do_{name}", None)
+        if command is None:
+            return False, False
+        result = command(arg)
+        return True, result is True
+
+    def run(self) -> None:
+        while True:
+            try:
+                line = self._session.prompt(self.prompt)
+            except KeyboardInterrupt:
+                console.print("\n[yellow]interrupted[/yellow]")
+                continue
+            except EOFError:
+                self.do_exit("")
+                return
+            if self.default(line) is True:
+                return
 
 
 # ── 主入口 ────────────────────────────────────────────────
@@ -229,7 +284,7 @@ def main() -> None:
 
     repl = ForgeREPL(engine)
     try:
-        repl.cmdloop()
+        repl.run()
     except KeyboardInterrupt:
         _close_engine(engine)
         console.print("\n[dim]Goodbye.[/dim]")

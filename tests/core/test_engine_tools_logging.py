@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from forgecc.core.engine_tools import (
+from forgecc.core.engine_loop import (
     format_tool_call_log,
     format_tool_result_log,
 )

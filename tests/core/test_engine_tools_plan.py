@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from forgecc.core.engine_tools import append_plan_tool_results
+from forgecc.core.engine_loop import append_plan_tool_results
 
 
 def test_append_plan_tool_results_executes_tools_and_appends_messages():

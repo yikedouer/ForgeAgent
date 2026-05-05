@@ -1,14 +1,14 @@
-"""MCP JSON-RPC protocol client and types."""
+"""MCP client facade and shared types."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from mcp import ClientSession
+from mcp.types import CallToolResult, ListToolsResult, Tool
+
 from .config import MCPServerConfig
-
-
-MCP_PROTOCOL_VERSION = "2024-11-05"
 
 
 @dataclass(frozen=True)
@@ -19,84 +19,66 @@ class MCPTool:
 
 
 class MCPProtocolError(RuntimeError):
-    """Raised when an MCP JSON-RPC response is invalid or contains an error."""
+    """Raised when the MCP SDK returns invalid data or fails a request."""
 
 
 class MCPTransport(Protocol):
-    def exchange(self, message: dict[str, Any]) -> dict[str, Any]:
-        """Send a JSON-RPC request and return the matching response."""
-
-    def send(self, message: dict[str, Any]) -> None:
-        """Send a JSON-RPC notification."""
+    streams: tuple[Any, Any]
+    _portal: Any
 
 
 class MCPClient:
-    """Small synchronous MCP JSON-RPC client.
-
-    Process management and stdio framing are intentionally delegated to the
-    transport so protocol behavior stays independently testable.
-    """
+    """Small synchronous facade over the official MCP SDK client session."""
 
     def __init__(self, config: MCPServerConfig, transport: MCPTransport):
         self.config = config
         self.transport = transport
-        self._next_id = 1
+        read_stream, write_stream = transport.streams
+        self._session_cm = transport._portal.wrap_async_context_manager(
+            ClientSession(read_stream, write_stream)
+        )
+        self._session = self._session_cm.__enter__()
         self._initialized = False
 
     def initialize(self) -> dict[str, Any]:
-        result = self._request(
-            "initialize",
-            {
-                "protocolVersion": MCP_PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {"name": "ForgeCC", "version": "0"},
-            },
-        )
-        self.transport.send({
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized",
-        })
+        result = self._call(self._session.initialize)
         self._initialized = True
-        return result
+        return _dump_result(result)
 
     def list_tools(self) -> tuple[MCPTool, ...]:
         self._ensure_initialized()
-        result = self._request("tools/list", {})
-        tools = result.get("tools", [])
-        if not isinstance(tools, list):
-            raise MCPProtocolError("MCP tools/list result must contain a tools array")
+        result = self._call(self._session.list_tools)
+        tools = result.tools if isinstance(result, ListToolsResult) else _dump_result(result).get("tools", [])
         return tuple(_parse_tool(tool) for tool in tools)
 
     def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         if not isinstance(name, str) or not name.strip():
             raise ValueError("MCP tool name must be a non-empty string")
         self._ensure_initialized()
-        return self._request(
-            "tools/call",
-            {"name": name.strip(), "arguments": arguments or {}},
-        )
+        result = self._call(self._session.call_tool, name.strip(), arguments or {})
+        return _dump_result(result)
+
+    def close(self) -> None:
+        self._session_cm.__exit__(None, None, None)
 
     def _ensure_initialized(self) -> None:
         if not self._initialized:
             self.initialize()
 
-    def _request(
-        self,
-        method: str,
-        params: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        request_id = self._next_id
-        self._next_id += 1
-        response = self.transport.exchange({
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-            "params": params or {},
-        })
-        return _response_result(response, request_id)
+    def _call(self, fn: Any, *args: Any) -> Any:
+        try:
+            return self.transport._portal.call(fn, *args)
+        except Exception as exc:
+            raise MCPProtocolError(str(exc)) from exc
 
 
 def _parse_tool(tool: Any) -> MCPTool:
+    if isinstance(tool, Tool):
+        return MCPTool(
+            name=tool.name.strip(),
+            description=tool.description or "",
+            input_schema=tool.inputSchema,
+        )
     if not isinstance(tool, dict):
         raise MCPProtocolError("MCP tool entry must be an object")
     name = tool.get("name", "")
@@ -117,17 +99,13 @@ def _parse_tool(tool: Any) -> MCPTool:
     )
 
 
-def _response_result(response: Any, request_id: int) -> dict[str, Any]:
-    if not isinstance(response, dict):
-        raise MCPProtocolError("MCP response must be an object")
-    if response.get("id") != request_id:
-        raise MCPProtocolError("MCP response id did not match request id")
-    error = response.get("error")
-    if error is not None:
-        if isinstance(error, dict) and isinstance(error.get("message"), str):
-            raise MCPProtocolError(error["message"])
-        raise MCPProtocolError("MCP response contained an error")
-    result = response.get("result", {})
-    if not isinstance(result, dict):
-        raise MCPProtocolError("MCP response result must be an object")
-    return result
+def _dump_result(result: Any) -> dict[str, Any]:
+    if isinstance(result, CallToolResult):
+        return result.model_dump(by_alias=True, exclude_none=True)
+    if hasattr(result, "model_dump"):
+        dumped = result.model_dump(by_alias=True, exclude_none=True)
+        if isinstance(dumped, dict):
+            return dumped
+    if isinstance(result, dict):
+        return result
+    raise MCPProtocolError("MCP SDK result must be an object")

@@ -2,63 +2,62 @@
 
 from __future__ import annotations
 
-import sys
 from unittest.mock import MagicMock
 
 import pytest
 
 
-class FakeTransport:
-    def __init__(self, responses):
-        self.responses = list(responses)
-        self.requests = []
-        self.notifications = []
+class FakeSessionContext:
+    def __init__(self, session):
+        self.session = session
+        self.exited = False
 
-    def exchange(self, message):
-        self.requests.append(message)
-        return self.responses.pop(0)
+    def __enter__(self):
+        return self.session
 
-    def send(self, message):
-        self.notifications.append(message)
+    def __exit__(self, exc_type, exc, tb):
+        self.exited = True
 
 
-class FakeStdin:
-    def __init__(self):
-        self.writes = []
-        self.flushed = False
-        self.closed = False
+class FakePortal:
+    def __init__(self, session):
+        self.session = session
+        self.context = FakeSessionContext(session)
 
-    def write(self, data):
-        self.writes.append(data)
+    def wrap_async_context_manager(self, _cm):
+        return self.context
 
-    def flush(self):
-        self.flushed = True
-
-    def close(self):
-        self.closed = True
+    def call(self, fn, *args):
+        return fn(*args)
 
 
-class FakeStdout:
-    def __init__(self, lines):
-        self.lines = list(lines)
-
-    def readline(self):
-        if not self.lines:
-            return ""
-        return self.lines.pop(0)
+class FakeSDKTransport:
+    def __init__(self, session):
+        self.streams = ("read", "write")
+        self._portal = FakePortal(session)
 
 
-class FakeProcess:
-    def __init__(self, lines):
-        self.stdin = FakeStdin()
-        self.stdout = FakeStdout(lines)
-        self.terminated = False
+class FakeMCPSession:
+    def __init__(self, *, init_result=None, tools=None, call_result=None, error=None):
+        self.init_result = init_result or {}
+        self.tools = tools or []
+        self.call_result = call_result or {}
+        self.error = error
+        self.calls = []
 
-    def poll(self):
-        return None if not self.terminated else 0
+    def initialize(self):
+        self.calls.append(("initialize",))
+        if self.error:
+            raise self.error
+        return self.init_result
 
-    def terminate(self):
-        self.terminated = True
+    def list_tools(self):
+        self.calls.append(("list_tools",))
+        return {"tools": self.tools}
+
+    def call_tool(self, name, arguments=None):
+        self.calls.append(("call_tool", name, arguments))
+        return self.call_result
 
 
 class TestParseMCPServers:
@@ -123,42 +122,31 @@ class TestParseMCPServers:
 
 
 class TestMCPClient:
-    def test_initialize_sends_handshake_and_initialized_notification(self):
+    def test_initialize_uses_sdk_session(self, monkeypatch):
         from forgecc.core.mcp import MCPClient, MCPServerConfig
+        from forgecc.core.mcp import protocol as protocol_mod
 
-        transport = FakeTransport([
-            {"jsonrpc": "2.0", "id": 1, "result": {"serverInfo": {"name": "fake"}}},
-        ])
+        session = FakeMCPSession(init_result={"serverInfo": {"name": "fake"}})
+        monkeypatch.setattr(protocol_mod, "ClientSession", lambda *_args: session)
+        transport = FakeSDKTransport(session)
         client = MCPClient(MCPServerConfig(name="docs", command="uvx"), transport)
 
         result = client.initialize()
 
         assert result == {"serverInfo": {"name": "fake"}}
-        assert transport.requests[0]["method"] == "initialize"
-        assert transport.requests[0]["params"]["clientInfo"]["name"] == "ForgeCC"
-        assert transport.notifications == [
-            {"jsonrpc": "2.0", "method": "notifications/initialized"},
-        ]
+        assert session.calls == [("initialize",)]
 
-    def test_list_tools_initializes_and_returns_normalized_tools(self):
+    def test_list_tools_initializes_and_returns_normalized_tools(self, monkeypatch):
         from forgecc.core.mcp import MCPClient, MCPServerConfig, MCPTool
+        from forgecc.core.mcp import protocol as protocol_mod
 
-        transport = FakeTransport([
-            {"jsonrpc": "2.0", "id": 1, "result": {}},
-            {
-                "jsonrpc": "2.0",
-                "id": 2,
-                "result": {
-                    "tools": [
-                        {
-                            "name": "search_docs",
-                            "description": "Search docs",
-                            "inputSchema": {"type": "object"},
-                        },
-                    ],
-                },
-            },
-        ])
+        session = FakeMCPSession(tools=[{
+            "name": "search_docs",
+            "description": "Search docs",
+            "inputSchema": {"type": "object"},
+        }])
+        monkeypatch.setattr(protocol_mod, "ClientSession", lambda *_args: session)
+        transport = FakeSDKTransport(session)
         client = MCPClient(MCPServerConfig(name="docs", command="uvx"), transport)
 
         assert client.list_tools() == (
@@ -168,43 +156,32 @@ class TestMCPClient:
                 input_schema={"type": "object"},
             ),
         )
-        assert [message["method"] for message in transport.requests] == [
-            "initialize",
-            "tools/list",
-        ]
+        assert session.calls == [("initialize",), ("list_tools",)]
 
-    def test_call_tool_sends_name_and_arguments(self):
+    def test_call_tool_sends_name_and_arguments(self, monkeypatch):
         from forgecc.core.mcp import MCPClient, MCPServerConfig
+        from forgecc.core.mcp import protocol as protocol_mod
 
-        transport = FakeTransport([
-            {"jsonrpc": "2.0", "id": 1, "result": {}},
-            {
-                "jsonrpc": "2.0",
-                "id": 2,
-                "result": {"content": [{"type": "text", "text": "done"}]},
-            },
-        ])
+        session = FakeMCPSession(call_result={"content": [{"type": "text", "text": "done"}]})
+        monkeypatch.setattr(protocol_mod, "ClientSession", lambda *_args: session)
+        transport = FakeSDKTransport(session)
         client = MCPClient(MCPServerConfig(name="docs", command="uvx"), transport)
 
         result = client.call_tool("search_docs", {"query": "ForgeCC"})
 
         assert result == {"content": [{"type": "text", "text": "done"}]}
-        assert transport.requests[1]["method"] == "tools/call"
-        assert transport.requests[1]["params"] == {
-            "name": "search_docs",
-            "arguments": {"query": "ForgeCC"},
-        }
+        assert session.calls == [
+            ("initialize",),
+            ("call_tool", "search_docs", {"query": "ForgeCC"}),
+        ]
 
-    def test_error_response_raises_protocol_error(self):
+    def test_sdk_error_raises_protocol_error(self, monkeypatch):
         from forgecc.core.mcp import MCPClient, MCPProtocolError, MCPServerConfig
+        from forgecc.core.mcp import protocol as protocol_mod
 
-        transport = FakeTransport([
-            {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "error": {"code": -32000, "message": "server failed"},
-            },
-        ])
+        session = FakeMCPSession(error=RuntimeError("server failed"))
+        monkeypatch.setattr(protocol_mod, "ClientSession", lambda *_args: session)
+        transport = FakeSDKTransport(session)
         client = MCPClient(MCPServerConfig(name="docs", command="uvx"), transport)
 
         with pytest.raises(MCPProtocolError, match="server failed"):
@@ -297,125 +274,64 @@ class TestMCPServerManager:
 
 
 class TestStdioMCPTransport:
-    def test_exchange_writes_newline_delimited_json_and_reads_response(self):
+    def test_transport_uses_official_sdk_server_parameters(self, monkeypatch):
+        from forgecc.core import mcp as mcp_pkg
         from forgecc.core.mcp import MCPServerConfig, StdioMCPTransport
 
-        process = FakeProcess([
-            '{"jsonrpc":"2.0","id":7,"result":{"ok":true}}\n',
-        ])
-        transport = StdioMCPTransport(
-            MCPServerConfig(name="docs", command="uvx"),
-            process=process,
-        )
+        captured = {}
 
-        response = transport.exchange({"jsonrpc": "2.0", "id": 7, "method": "ping"})
+        def fake_stdio_client(params):
+            captured["params"] = params
 
-        assert response == {"jsonrpc": "2.0", "id": 7, "result": {"ok": True}}
-        assert process.stdin.writes == ['{"jsonrpc":"2.0","id":7,"method":"ping"}\n']
-        assert process.stdin.flushed is True
+            class FakeAsyncContext:
+                async def __aenter__(self):
+                    return "read", "write"
 
-    def test_exchange_skips_notifications_until_matching_response(self):
-        from forgecc.core.mcp import MCPServerConfig, StdioMCPTransport
+                async def __aexit__(self, exc_type, exc, tb):
+                    return None
 
-        process = FakeProcess([
-            '{"jsonrpc":"2.0","method":"notifications/progress"}\n',
-            '{"jsonrpc":"2.0","id":2,"result":{}}\n',
-        ])
-        transport = StdioMCPTransport(
-            MCPServerConfig(name="docs", command="uvx"),
-            process=process,
-        )
+            return FakeAsyncContext()
 
-        assert transport.exchange({"jsonrpc": "2.0", "id": 2, "method": "ping"}) == {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "result": {},
-        }
-
-    def test_send_writes_notification_without_reading_response(self):
-        from forgecc.core.mcp import MCPServerConfig, StdioMCPTransport
-
-        process = FakeProcess([])
-        transport = StdioMCPTransport(
-            MCPServerConfig(name="docs", command="uvx"),
-            process=process,
-        )
-
-        transport.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
-
-        assert process.stdin.writes == [
-            '{"jsonrpc":"2.0","method":"notifications/initialized"}\n',
-        ]
-
-    def test_exchange_raises_on_eof_before_response(self):
-        from forgecc.core.mcp import (
-            MCPProtocolError, MCPServerConfig, StdioMCPTransport,
-        )
+        monkeypatch.setattr(mcp_pkg.stdio, "stdio_client", fake_stdio_client)
 
         transport = StdioMCPTransport(
-            MCPServerConfig(name="docs", command="uvx"),
-            process=FakeProcess([]),
+            MCPServerConfig(
+                name="docs",
+                command="uvx",
+                args=("mcp-server", "/tmp"),
+                env=(("TOKEN", "secret"),),
+            ),
         )
+        try:
+            assert captured["params"].command == "uvx"
+            assert captured["params"].args == ["mcp-server", "/tmp"]
+            assert captured["params"].env == {"TOKEN": "secret"}
+            assert transport.streams == ("read", "write")
+        finally:
+            transport.close()
 
-        with pytest.raises(MCPProtocolError, match="ended"):
-            transport.exchange({"jsonrpc": "2.0", "id": 1, "method": "ping"})
-
-    def test_close_closes_stdin_and_terminates_running_process(self):
-        from forgecc.core.mcp import MCPServerConfig, StdioMCPTransport
-
-        process = FakeProcess([])
-        transport = StdioMCPTransport(
-            MCPServerConfig(name="docs", command="uvx"),
-            process=process,
-        )
-
-        transport.close()
-
-        assert process.stdin.closed is True
-        assert process.terminated is True
-
-    def test_client_can_call_tool_through_real_stdio_process(self, tmp_path):
+    def test_client_can_call_tool_through_real_sdk_stdio_process(self, tmp_path):
         from forgecc.core.mcp import MCPClient, MCPServerConfig, StdioMCPTransport
 
         server = tmp_path / "mcp_server.py"
         server.write_text(
             """
-import json
-import sys
+from mcp.server.fastmcp import FastMCP
 
-for line in sys.stdin:
-    message = json.loads(line)
-    method = message.get("method")
-    if method == "notifications/initialized":
-        continue
-    if method == "initialize":
-        result = {"serverInfo": {"name": "fake"}}
-    elif method == "tools/list":
-        result = {
-            "tools": [
-                {
-                    "name": "echo",
-                    "description": "Echo text",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {"text": {"type": "string"}},
-                    },
-                }
-            ]
-        }
-    elif method == "tools/call":
-        text = message.get("params", {}).get("arguments", {}).get("text", "")
-        result = {"content": [{"type": "text", "text": f"echo: {text}"}]}
-    else:
-        result = {}
-    print(json.dumps({"jsonrpc": "2.0", "id": message["id"], "result": result}), flush=True)
+server = FastMCP("fake")
+
+@server.tool()
+def echo(text: str) -> str:
+    return f"echo: {text}"
+
+server.run("stdio")
 """,
             encoding="utf-8",
         )
         config = MCPServerConfig(
             name="fake",
-            command=sys.executable,
-            args=(str(server),),
+            command="uv",
+            args=("run", "python", str(server)),
         )
         transport = StdioMCPTransport(config)
         client = MCPClient(config, transport)
@@ -424,7 +340,10 @@ for line in sys.stdin:
             tools = client.list_tools()
             result = client.call_tool("echo", {"text": "ForgeCC"})
         finally:
+            client.close()
             transport.close()
 
         assert tools[0].name == "echo"
-        assert result == {"content": [{"type": "text", "text": "echo: ForgeCC"}]}
+        assert result["content"] == [{"type": "text", "text": "echo: ForgeCC"}]
+        assert result["structuredContent"] == {"result": "echo: ForgeCC"}
+        assert result["isError"] is False

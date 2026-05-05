@@ -59,19 +59,17 @@ def _system_msg(text: str = "You are a helpful assistant.") -> dict:
 
 class TestEstimateTokens:
     def test_ascii(self):
-        assert _estimate_tokens("abcd") == 1  # 4 / 4
+        assert _estimate_tokens("abcd") == 1
 
     def test_longer_ascii(self):
         text = "a" * 100
-        assert _estimate_tokens(text) == 25
+        assert _estimate_tokens(text) == 13
 
     def test_empty_string(self):
-        assert _estimate_tokens("") == 1  # max(1, 0)
+        assert _estimate_tokens("") == 1
 
     def test_cjk_mixed(self):
-        # CJK 字符 3 字节 UTF-8，但 len() 仍按字符
-        text = "你好世界abcd"  # 8 chars → 2
-        assert _estimate_tokens(text) == 2
+        assert _estimate_tokens("你好世界abcd") == 6
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -81,7 +79,7 @@ class TestEstimateTokens:
 class TestMsgTokens:
     def test_content_only(self):
         msg = _user_msg("a" * 40)
-        assert _msg_tokens(msg) == 10
+        assert _msg_tokens(msg) == 5
 
     def test_with_tool_calls(self):
         msg = _assistant_msg("text", [_tool_call("c1", "read_file")])
@@ -96,12 +94,12 @@ class TestMsgTokens:
 class TestConversationTokens:
     def test_sum(self):
         msgs = [_user_msg("a" * 40), _user_msg("b" * 80)]
-        assert _conversation_tokens(msgs) == 30  # 10 + 20
+        assert _conversation_tokens(msgs) == 25
 
     def test_skips_non_object_messages(self):
         msgs = [_user_msg("a" * 40), "not-a-message"]
 
-        assert _conversation_tokens(msgs) == 10
+        assert _conversation_tokens(msgs) == 5
 
 
 # ═══════════════════════════════════════════════════════════════

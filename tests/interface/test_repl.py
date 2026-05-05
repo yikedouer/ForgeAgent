@@ -80,6 +80,26 @@ class TestReplSkillInvocation:
 
         engine.run.assert_not_called()
 
+    def test_plain_builtin_command_dispatches_without_cmd_module(self):
+        engine = _fake_engine()
+        repl = ForgeREPL(engine)
+        repl.do_usage = MagicMock(return_value=None)
+
+        result = repl.default("usage")
+
+        assert result is None
+        repl.do_usage.assert_called_once_with("")
+        engine.run.assert_not_called()
+
+    def test_prompt_loop_stops_when_exit_command_returns_true(self):
+        engine = _fake_engine()
+        repl = ForgeREPL(engine)
+        repl._session.prompt = MagicMock(return_value="exit")
+
+        repl.run()
+
+        engine.close.assert_called_once_with()
+
     def test_inline_skill_runs_resolved_prompt_through_engine(
         self, tmp_path, monkeypatch,
     ):

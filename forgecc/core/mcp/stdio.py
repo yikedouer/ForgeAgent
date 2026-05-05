@@ -1,86 +1,37 @@
-"""MCP stdio transport."""
+"""Synchronous wrapper around the official MCP stdio client."""
 
 from __future__ import annotations
 
-import json
-import os
-import subprocess
 from typing import Any
 
+from anyio.from_thread import start_blocking_portal
+from mcp.client.stdio import StdioServerParameters, stdio_client
+
 from .config import MCPServerConfig
-from .protocol import MCPProtocolError
 
 
 class StdioMCPTransport:
-    """MCP stdio transport using newline-delimited JSON-RPC messages."""
+    """Owns an official SDK stdio transport inside a blocking portal."""
 
-    def __init__(self, config: MCPServerConfig, process: Any | None = None):
+    def __init__(self, config: MCPServerConfig):
         self.config = config
-        self.process = process or self._start_process(config)
-
-    def exchange(self, message: dict[str, Any]) -> dict[str, Any]:
-        request_id = message.get("id")
-        if request_id is None:
-            raise ValueError("MCP stdio exchange requires a request id")
-        self._write_message(message)
-        while True:
-            response = self._read_message()
-            if response.get("id") is None:
-                continue
-            if response.get("id") != request_id:
-                raise MCPProtocolError("MCP stdio response id did not match request id")
-            return response
-
-    def send(self, message: dict[str, Any]) -> None:
-        self._write_message(message)
+        self._portal_cm = start_blocking_portal()
+        self._portal = self._portal_cm.__enter__()
+        self._stdio_cm = self._portal.wrap_async_context_manager(
+            stdio_client(_server_params(config))
+        )
+        self.streams = self._stdio_cm.__enter__()
 
     def close(self) -> None:
-        stdin = getattr(self.process, "stdin", None)
-        if stdin is not None:
-            try:
-                stdin.close()
-            except OSError:
-                pass
-        poll = getattr(self.process, "poll", None)
-        terminate = getattr(self.process, "terminate", None)
-        if callable(poll) and callable(terminate) and poll() is None:
-            terminate()
-
-    def _write_message(self, message: dict[str, Any]) -> None:
-        stdin = getattr(self.process, "stdin", None)
-        if stdin is None:
-            raise MCPProtocolError("MCP stdio process has no stdin")
-        payload = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
-        if "\n" in payload or "\r" in payload:
-            raise MCPProtocolError("MCP stdio message must not contain embedded newlines")
-        stdin.write(payload + "\n")
-        stdin.flush()
-
-    def _read_message(self) -> dict[str, Any]:
-        stdout = getattr(self.process, "stdout", None)
-        if stdout is None:
-            raise MCPProtocolError("MCP stdio process has no stdout")
-        line = stdout.readline()
-        if line == "":
-            raise MCPProtocolError("MCP stdio stream ended before a response")
         try:
-            message = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise MCPProtocolError(f"MCP stdio produced invalid JSON: {exc.msg}") from exc
-        if not isinstance(message, dict):
-            raise MCPProtocolError("MCP stdio message must be an object")
-        return message
+            self._stdio_cm.__exit__(None, None, None)
+        finally:
+            self._portal_cm.__exit__(None, None, None)
 
-    @staticmethod
-    def _start_process(config: MCPServerConfig) -> subprocess.Popen:
-        env = os.environ.copy()
-        env.update(dict(config.env))
-        return subprocess.Popen(
-            [config.command, *config.args],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            env=env,
-        )
+
+def _server_params(config: MCPServerConfig) -> StdioServerParameters:
+    return StdioServerParameters(
+        command=config.command,
+        args=list(config.args),
+        env=dict(config.env) or None,
+    )
