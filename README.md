@@ -279,11 +279,11 @@ ForgeCC/
 │   ├── toolkit_schema_value.py (277) # 递归 JSON Schema value 校验
 │   │
 │   ├── core/                        # ── 引擎内核 ──
-│   │   ├── engine.py         (304)  #   Agent 核心门面 + public API
-│   │   ├── engine_loop.py    (299)  #   Agent 主循环、prompt 构建、LLM 恢复、用量统计
+│   │   ├── engine.py         (224)  #   Agent 核心门面 + public API
+│   │   ├── engine_loop.py    (293)  #   Agent 主循环、prompt 构建、LLM 恢复、用量统计
 │   │   ├── engine_tools.py   (156)  #   工具调用准备、计划工具、执行日志、结果回填
-│   │   ├── engine_agents.py  (409)  #   子 Agent runtime、运行记录、Team 并行与入口 API
-│   │   ├── engine_session.py (365)  #   Engine 初始化、记忆注入、压缩、checkpoint、状态 API
+│   │   ├── engine_agents.py  (402)  #   子 Agent runtime、运行记录、Team 并行与入口 API
+│   │   ├── engine_session.py (362)  #   Engine 初始化、记忆注入、压缩、checkpoint、状态 API
 │   │   ├── providers.py      (289)  #   LLM 适配层（OpenAI / AzureOpenAI + 流式）
 │   │   ├── provider_errors.py (40)  #   Provider 错误分类 + 重试判定
 │   │   ├── provider_types.py  (50)  #   Completion / Invocation 响应类型
@@ -516,7 +516,7 @@ engine.execute_sub_agents_parallel([
 - 错误映射：401→AuthenticationError, 429→RateLimitedError, 上下文超限→ContextWindowError
 - 指数退避重试：可重试错误（429/502/503）最多重试 4 次
 
-### `core/engine.py` — Engine 门面（304 行）
+### `core/engine.py` — Engine 门面（224 行）
 
 这是核心编排入口，保留 `Engine` 公共 API 和依赖注入点；具体职责按运行时边界收拢到 4 个模块：`engine_loop.py`、`engine_tools.py`、`engine_agents.py`、`engine_session.py`。`Engine.run()` 的伪代码：
 
@@ -686,7 +686,7 @@ toolkit.run_one(call_id, name, args)
 | 10 | `core/provider_errors.py` | 40 | Provider 错误分类——上下文窗口、限流/连接重试判定 |
 | 11 | `core/provider_types.py` | 50 | Provider 响应类型——Completion、Invocation、assistant 消息重建 |
 | 11 | `interface/directive.py` | 279 | 系统提示词动态组装（7 大节对齐 claw-code + 记忆指导） |
-| 12 | `core/engine.py` | 297 | **核心门面**——压缩 + 提示词 + LLM + 工具 + 记忆注入 + 子 Agent public API |
+| 12 | `core/engine.py` | 224 | **核心门面**——Engine public API、生命周期入口、子 Agent public API |
 
 > 学完这三个文件，你就理解了 Agent 循环的完整编排逻辑。
 
@@ -719,10 +719,10 @@ toolkit.run_one(call_id, name, args)
 | 23 | `core/plan_mode.py` | 293 | 计划模式——只读沙箱 + 四选项审批 |
 | 23 | `interface/cli_startup.py` | 74 | CLI 启动参数校验——resume/latest、输出格式、Settings 覆盖 |
 | 24 | `interface/export_command.py` | 81 | 离线 checkpoint export 命令——Markdown/JSON/JSONL |
-| 25 | `core/engine_loop.py` | 299 | Agent 主循环——单轮输入准备、prompt/schema、LLM 恢复、token 统计 |
+| 25 | `core/engine_loop.py` | 293 | Agent 主循环——单轮输入准备、prompt/schema、LLM 恢复、token 统计 |
 | 26 | `core/engine_tools.py` | 156 | 工具执行链——工具调用准备、计划工具结果、日志、持久化、transcript 回填 |
-| 27 | `core/engine_agents.py` | 409 | 子 Agent runtime——运行记录、单 Agent 执行、Team 并行、入口 API |
-| 28 | `core/engine_session.py` | 365 | 会话层——初始化、记忆注入、手动压缩、checkpoint、状态重置、计划/模型 API |
+| 27 | `core/engine_agents.py` | 402 | 子 Agent runtime——运行记录、单 Agent 执行、Team 并行、入口 API |
+| 28 | `core/engine_session.py` | 362 | 会话层——初始化、记忆注入、手动压缩、checkpoint、状态重置、计划/模型 API |
 | 29 | `interface/one_shot.py` | 54 | CLI 单次执行——text/JSON 输出、token 用量、Engine 资源关闭 |
 | 30 | `interface/repl.py` | 235 | CLI 交互壳层——输入分派、Engine 生命周期、权限确认回调 |
 | 31 | `interface/repl_commands.py` | 256 | REPL 命令集——12 个命令 + Skill 调用 + 计划模式命令 |

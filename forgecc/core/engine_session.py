@@ -6,13 +6,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from .. import toolkit
 from ..context import checkpoint as ckpt
 from ..context.collapse import CollapseState
 from ..context.compaction import CompactionResult, _conversation_tokens, maybe_compact
 from ..context.tool_storage import reset_persisted_tracking as _reset_persisted_tracking
 from ..memory.prefetch import MemoryPrefetch, start_memory_prefetch
 from ..memory.recall import format_memories_for_injection
-from .plan_mode import PlanApprovalFn
+from .hooks import load_hook_file
+from .log import get_logger
+from .mcp import MCPClient, MCPServerManager, StdioMCPTransport
+from .permissions import PermissionEnforcer, PermissionMode
+from .plan_mode import PlanApprovalFn, PlanModeController
+from .runtime import RuntimeRecorder
 from .settings import Settings
 
 
@@ -20,6 +26,7 @@ FormatMemoriesFn = Callable[[list[object]], str]
 StartPrefetchFn = Callable[[str, str, object, set[str], int], MemoryPrefetch]
 SaveCheckpointFn = Callable[[ckpt.Checkpoint], Path]
 LoadCheckpointFn = Callable[[str], ckpt.Checkpoint]
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -155,55 +162,45 @@ def initialize_engine_runtime(
     *,
     settings,
     is_sub_agent: bool,
-    toolkit_module,
-    checkpoint_module,
-    mcp_manager_cls,
-    mcp_transport_factory,
-    mcp_client_factory,
-    runtime_recorder_cls,
-    permission_mode_cls,
-    permission_enforcer_cls,
-    plan_controller_cls,
-    logger,
 ) -> None:
     """Attach runtime collaborators created during Engine initialization."""
-    state._mcp_manager = mcp_manager_cls(
+    state._mcp_manager = MCPServerManager(
         settings.mcp_servers,
-        register_mcp_tools=toolkit_module.register_mcp_tools,
-        transport_factory=mcp_transport_factory,
-        client_factory=mcp_client_factory,
-        logger=logger,
+        register_mcp_tools=toolkit.register_mcp_tools,
+        transport_factory=StdioMCPTransport,
+        client_factory=MCPClient,
+        logger=log,
     )
     state._mcp_transports = state._mcp_manager.transports
-    state._runtime = runtime_recorder_cls(
+    state._runtime = RuntimeRecorder(
         session_id=lambda: state.session_id,
         is_sub_agent=is_sub_agent,
-        append_message_event=lambda session_id, index, message: checkpoint_module.append_message_event(
+        append_message_event=lambda session_id, index, message: ckpt.append_message_event(
             session_id,
             index,
             message,
         ),
-        logger=logger,
+        logger=log,
     )
 
-    mode = permission_mode_cls(settings.permission_mode)
-    state.enforcer = permission_enforcer_cls(mode, settings.workspace)
-    toolkit_module.set_enforcer(state.enforcer)
-    state._plan = plan_controller_cls(
+    mode = PermissionMode(settings.permission_mode)
+    state.enforcer = PermissionEnforcer(mode, settings.workspace)
+    toolkit.set_enforcer(state.enforcer)
+    state._plan = PlanModeController(
         session_id=lambda: state.session_id,
         enforcer=state.enforcer,
         transcript=state.transcript,
-        lookup_tool=toolkit_module.lookup,
+        lookup_tool=toolkit.lookup,
     )
 
 
-def start_configured_runtime(state, *, load_hook_file_fn, logger) -> None:
+def start_configured_runtime(state) -> None:
     """Load configured hooks, then start MCP servers."""
     for path in state.settings.hook_paths:
         try:
-            load_hook_file_fn(path)
+            load_hook_file(path)
         except Exception as exc:
-            logger.warning("加载 hook 文件失败: %s — %s", path, exc)
+            log.warning("加载 hook 文件失败: %s — %s", path, exc)
     state._mcp_manager.start()
 
 

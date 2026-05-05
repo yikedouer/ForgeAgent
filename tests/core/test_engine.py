@@ -71,8 +71,8 @@ def engine_env(tmp_path):
     provider._total_out = 0
 
     # Patch maybe_start_memory_prefetch 避免真实线程池
-    with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
-         patch("forgecc.core.engine.persist_if_large", side_effect=lambda sid, name, out: out):
+    with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+         patch("forgecc.core.engine_loop.persist_if_large", side_effect=lambda sid, name, out: out):
         from forgecc.core.engine import Engine
         eng = Engine(settings, provider)
         yield eng, provider
@@ -95,7 +95,7 @@ class TestEngineInit:
         settings = _make_settings(tmp_path)
         provider = MagicMock()
         provider.tokens_used = (0, 0)
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None):
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None):
             from forgecc.core.engine import Engine
             eng = Engine(settings, provider, is_sub_agent=True)
             assert eng._is_sub_agent is True
@@ -107,7 +107,7 @@ class TestEngineInit:
         provider = MagicMock()
         provider.tokens_used = (0, 0)
 
-        with patch("forgecc.core.engine.load_hook_file") as load_hook_file:
+        with patch("forgecc.core.engine_session.load_hook_file") as load_hook_file:
             from forgecc.core.engine import Engine
 
             Engine(settings, provider)
@@ -126,9 +126,9 @@ class TestEngineInit:
         transport = MagicMock()
         client = MagicMock()
 
-        with patch("forgecc.core.engine.StdioMCPTransport", return_value=transport) as transport_cls, \
-             patch("forgecc.core.engine.MCPClient", return_value=client) as client_cls, \
-             patch("forgecc.core.engine.toolkit.register_mcp_tools", return_value=("mcp__docs__search",)) as register:
+        with patch("forgecc.core.engine_session.StdioMCPTransport", return_value=transport) as transport_cls, \
+             patch("forgecc.core.engine_session.MCPClient", return_value=client) as client_cls, \
+             patch("forgecc.core.engine_session.toolkit.register_mcp_tools", return_value=("mcp__docs__search",)) as register:
             from forgecc.core.engine import Engine
 
             eng = Engine(settings, provider)
@@ -146,7 +146,7 @@ class TestEngineInit:
         provider = MagicMock()
         provider.tokens_used = (0, 0)
 
-        with patch("forgecc.core.engine.StdioMCPTransport") as transport_cls:
+        with patch("forgecc.core.engine_session.StdioMCPTransport") as transport_cls:
             from forgecc.core.engine import Engine
 
             eng = Engine(settings, provider, is_sub_agent=True)
@@ -163,9 +163,9 @@ class TestEngineInit:
         transport = MagicMock()
         client = MagicMock()
 
-        with patch("forgecc.core.engine.StdioMCPTransport", return_value=transport), \
-             patch("forgecc.core.engine.MCPClient", return_value=client), \
-             patch("forgecc.core.engine.toolkit.register_mcp_tools", return_value=("mcp__docs__search",)):
+        with patch("forgecc.core.engine_session.StdioMCPTransport", return_value=transport), \
+             patch("forgecc.core.engine_session.MCPClient", return_value=client), \
+             patch("forgecc.core.engine_session.toolkit.register_mcp_tools", return_value=("mcp__docs__search",)):
             from forgecc.core.engine import Engine
 
             eng = Engine(settings, provider)
@@ -183,9 +183,9 @@ class TestEngineInit:
         transport = MagicMock()
         client = MagicMock()
 
-        with patch("forgecc.core.engine.StdioMCPTransport", return_value=transport), \
-             patch("forgecc.core.engine.MCPClient", return_value=client), \
-             patch("forgecc.core.engine.toolkit.register_mcp_tools", side_effect=RuntimeError("boom")):
+        with patch("forgecc.core.engine_session.StdioMCPTransport", return_value=transport), \
+             patch("forgecc.core.engine_session.MCPClient", return_value=client), \
+             patch("forgecc.core.engine_session.toolkit.register_mcp_tools", side_effect=RuntimeError("boom")):
             from forgecc.core.engine import Engine
 
             eng = Engine(settings, provider)
@@ -205,8 +205,8 @@ class TestRunBasic:
         provider.generate.return_value = comp
 
         with patch("forgecc.context.checkpoint.append_message_event") as append_event, \
-             patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.core.engine.build_plan_mode_prompt", return_value=None), \
+             patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgecc.core.engine_loop.build_plan_mode_prompt", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="system prompt"):
             eng.run("Hello")
 
@@ -220,8 +220,8 @@ class TestRunBasic:
         comp = _make_completion(text="Answer")
         provider.generate.return_value = comp
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.core.engine.build_plan_mode_prompt", return_value=None):
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgecc.core.engine_loop.build_plan_mode_prompt", return_value=None):
             # Patch directive builder
             with patch("forgecc.interface.directive.build", return_value="system prompt"):
                 result = eng.run("Hello")
@@ -235,8 +235,8 @@ class TestRunBasic:
         eng, provider = engine_env
         provider.generate.return_value = _make_completion(text="Answer")
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
-             patch("forgecc.core.engine.build_plan_mode_prompt", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
+             patch("forgecc.core.engine_loop.build_plan_mode_prompt", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="system prompt"):
             eng.run("Hello")
 
@@ -253,7 +253,7 @@ class TestRunBasic:
         comp = _make_completion(text="", invocations=[inv])
         provider.generate.return_value = comp
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="sys"), \
              patch("forgecc.toolkit.run_batch") as mock_batch:
             mock_batch.return_value = [MagicMock(call_id="c1", name="read_file", output="ok")]
@@ -274,7 +274,7 @@ class TestRunBasic:
         comp_done = _make_completion(text="done")
         provider.generate.side_effect = [comp_tools, comp_done]
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="sys"):
             result = eng.run("Do something")
 
@@ -291,7 +291,7 @@ class TestRunBasic:
         comp_done = _make_completion(text="done")
         provider.generate.side_effect = [comp_tools, comp_done]
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="sys"):
             result = eng.run("Do something")
 
@@ -311,7 +311,7 @@ class TestRunBasic:
         def broken_callback(_name, _args):
             raise RuntimeError("callback down")
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="sys"), \
              patch("forgecc.toolkit.run_batch") as mock_batch:
             mock_batch.return_value = [MagicMock(call_id="c1", name="read_file", output="ok")]
@@ -327,10 +327,10 @@ class TestRunBasic:
         comp_done = _make_completion(text="done")
         provider.generate.side_effect = [comp_tools, comp_done]
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="sys"), \
              patch("forgecc.toolkit.run_batch") as mock_batch, \
-             patch("forgecc.core.engine.persist_if_large", side_effect=OSError("disk full")):
+             patch("forgecc.core.engine_loop.persist_if_large", side_effect=OSError("disk full")):
             mock_batch.return_value = [MagicMock(call_id="c1", name="read_file", output="raw output")]
             result = eng.run("Do something")
 
@@ -352,7 +352,7 @@ class TestContextWindowRecovery:
         comp_ok = _make_completion(text="Recovered")
         provider.generate.side_effect = [ContextWindowError("too big"), comp_ok]
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="sys"):
             result = eng.run("Big prompt")
 
@@ -403,7 +403,7 @@ class TestPlanMode:
         comp_done = _make_completion(text="done")
         provider.generate.side_effect = [comp_tools, comp_done]
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="sys"):
             result = eng.run("Plan this")
 
@@ -766,7 +766,7 @@ class TestTokenTracking:
         comp = _make_completion(text="ok", usage_in=100, usage_out=50)
         provider.generate.return_value = comp
 
-        with patch("forgecc.core.engine.maybe_start_memory_prefetch", return_value=None), \
+        with patch("forgecc.core.engine_loop.maybe_start_memory_prefetch", return_value=None), \
              patch("forgecc.interface.directive.build", return_value="sys"):
             eng.run("hello")
 

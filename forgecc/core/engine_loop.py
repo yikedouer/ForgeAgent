@@ -2,21 +2,34 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from .. import toolkit
 from ..context.collapse import project_view
 from ..context.compaction import _prune, maybe_compact
+from ..context.tool_storage import persist_if_large
 from .errors import ContextWindowError
+from .engine_session import maybe_start_memory_prefetch
+from .engine_tools import (
+    append_plan_tool_results,
+    build_tool_calls,
+    execute_normal_tool_calls,
+    notify_instrument_callbacks,
+    split_plan_tool_calls,
+)
+from .log import get_logger
 from .permissions import PermissionMode
-from .plan_mode import build_plan_mode_prompt
+from .plan_mode import PLAN_TOOL_DEFS, PLAN_TOOL_NAMES, build_plan_mode_prompt
 
 
 DirectiveBuilder = Callable[..., str]
 PlanPromptBuilder = Callable[[str], str]
 ProjectViewFn = Callable[[list[dict], object | None], list[dict]]
 PruneFn = Callable[[list[dict], int], object]
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -182,33 +195,14 @@ def run_agent_loop(
     user_input: str,
     on_token: Callable[[str], None] | None,
     on_instrument: Callable[[str, dict], None] | None,
-    append_message,
-    autosave_checkpoint,
-    maybe_start_memory_prefetch_fn,
-    prepare_round_inputs_fn,
-    generate_with_context_recovery_fn,
-    record_completion_usage_fn,
-    build_tool_calls_fn,
-    notify_instrument_callbacks_fn,
-    split_plan_tool_calls_fn,
-    append_plan_tool_results_fn,
-    execute_normal_tool_calls_fn,
-    toolkit_schemas_fn,
-    toolkit_run_batch_fn,
-    persist_fn,
-    memory_injector,
-    plan_prompt_builder,
-    plan_tool_defs,
-    plan_tool_names,
-    logger,
-    now,
 ) -> str:
     """Process one user message through the full Agent loop."""
+    append_message = state._append_message
     append_message({"role": "user", "content": user_input})
-    logger.info("━" * 50)
-    logger.info("用户输入: %s", user_input[:200])
+    log.info("━" * 50)
+    log.info("用户输入: %s", user_input[:200])
 
-    state._pending_prefetch = maybe_start_memory_prefetch_fn(
+    state._pending_prefetch = maybe_start_memory_prefetch(
         is_sub_agent=state._is_sub_agent,
         user_input=user_input,
         workspace=state.settings.workspace,
@@ -219,22 +213,22 @@ def run_agent_loop(
 
     for _ in range(state.settings.max_rounds):
         state._round += 1
-        logger.debug("── 第 %d 轮 ──", state._round)
+        log.debug("── 第 %d 轮 ──", state._round)
 
-        prepared = prepare_round_inputs_fn(
+        prepared = prepare_round_inputs(
             state,
-            plan_prompt_builder=plan_prompt_builder,
-            plan_tool_defs=plan_tool_defs,
-            toolkit_schemas=toolkit_schemas_fn(),
-            memory_injector=memory_injector,
+            plan_prompt_builder=build_plan_mode_prompt,
+            plan_tool_defs=PLAN_TOOL_DEFS,
+            toolkit_schemas=toolkit.schemas(),
+            memory_injector=state._inject_recalled_memories,
         )
 
-        logger.debug(
+        log.debug(
             "调用 LLM: %d 条消息, %d 个工具 schema",
             len(prepared.wire_messages),
             len(prepared.tool_schemas),
         )
-        recovery = generate_with_context_recovery_fn(
+        recovery = generate_with_context_recovery(
             provider=state.provider,
             wire_messages=prepared.wire_messages,
             tool_schemas=prepared.tool_schemas,
@@ -243,12 +237,12 @@ def run_agent_loop(
             transcript=state.transcript,
         )
         if recovery.collapse_reset:
-            logger.warning("ContextWindowError — 触发紧急裁剪后重试")
+            log.warning("ContextWindowError — 触发紧急裁剪后重试")
             state._collapse = None
         completion = recovery.completion
 
-        usage = record_completion_usage_fn(state, completion, now=now())
-        logger.info(
+        usage = record_completion_usage(state, completion, now=time.time())
+        log.info(
             "LLM 响应: in=%d out=%d  文本=%d字  工具调用=%d个",
             usage.input_tokens,
             usage.output_tokens,
@@ -259,23 +253,23 @@ def run_agent_loop(
         append_message(completion.raw_assistant_msg)
 
         if not completion.invocations:
-            logger.info("模型返回纯文本，本轮结束（共 %d 轮）", state._round)
-            autosave_checkpoint()
+            log.info("模型返回纯文本，本轮结束（共 %d 轮）", state._round)
+            state._autosave_checkpoint()
             return completion.text
 
-        all_calls = build_tool_calls_fn(completion.invocations)
-        notify_instrument_callbacks_fn(
+        all_calls = build_tool_calls(completion.invocations)
+        notify_instrument_callbacks(
             completion.invocations,
             on_instrument,
-            warn=logger.warning,
+            warn=log.warning,
         )
 
-        plan_calls, normal_calls = split_plan_tool_calls_fn(
+        plan_calls, normal_calls = split_plan_tool_calls(
             all_calls,
-            plan_tool_names=plan_tool_names,
+            plan_tool_names=PLAN_TOOL_NAMES,
         )
 
-        append_plan_tool_results_fn(
+        append_plan_tool_results(
             plan_calls,
             execute_plan_tool=state._execute_plan_tool,
             append_message=append_message,
@@ -284,16 +278,16 @@ def run_agent_loop(
         if state.enforcer.mode == PermissionMode.PLAN and state._plan_file_path:
             normal_calls = state._filter_plan_mode_calls(normal_calls)
 
-        execute_normal_tool_calls_fn(
+        execute_normal_tool_calls(
             session_id=state.session_id,
             calls=normal_calls,
-            run_batch=toolkit_run_batch_fn,
+            run_batch=toolkit.run_batch,
             append_message=append_message,
-            persist=persist_fn,
-            info=logger.info,
-            warn=logger.warning,
+            persist=persist_if_large,
+            info=log.info,
+            warn=log.warning,
         )
 
-    logger.warning("循环预算耗尽（%d 轮）", state.settings.max_rounds)
-    autosave_checkpoint()
+    log.warning("循环预算耗尽（%d 轮）", state.settings.max_rounds)
+    state._autosave_checkpoint()
     return "(round budget exhausted — task may be incomplete)"

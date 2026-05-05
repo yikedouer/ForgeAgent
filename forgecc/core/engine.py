@@ -12,60 +12,29 @@
 
 from __future__ import annotations
 
-import os
-import time
 import uuid
-from pathlib import Path
 from typing import Callable
 
-from .. import toolkit
 from .providers import Provider
 from .settings import Settings
-from .permissions import PermissionMode, PermissionEnforcer
-from .plan_mode import (
-    PLAN_TOOL_NAMES,
-    EDIT_TOOL_NAMES,
-    PLAN_TOOL_DEFS,
-    build_plan_mode_prompt,
-    PlanModeController,
-)
+from .permissions import PermissionMode
 from ..context.collapse import CollapseState
-from ..context.tool_storage import persist_if_large
-from ..context import checkpoint as ckpt
 from ..memory.prefetch import MemoryPrefetch
 from .log import get_logger
-from .hooks import load_hook_file
-from .mcp import MCPClient, MCPServerManager, StdioMCPTransport
-from .runtime import RuntimeRecorder
 from .engine_agents import (
     execute_sub_agent_entry,
     execute_sub_agents_parallel_entry,
-    run_configured_sub_agent,
-    run_sub_agent_team,
 )
-from .engine_loop import (
-    generate_with_context_recovery,
-    prepare_round_inputs,
-    record_completion_usage,
-    run_agent_loop,
-)
+from .engine_loop import run_agent_loop
 from .engine_session import (
     EngineCheckpointApiMixin,
     EnginePlanApiMixin,
     ManualCompactionReport,
     initialize_engine_runtime,
     inject_recalled_memories,
-    maybe_start_memory_prefetch,
     reset_conversation_state,
     run_manual_compaction,
     start_configured_runtime,
-)
-from .engine_tools import (
-    append_plan_tool_results,
-    build_tool_calls,
-    execute_normal_tool_calls,
-    notify_instrument_callbacks,
-    split_plan_tool_calls,
 )
 
 # 确保首次导入时注册所有工具
@@ -124,23 +93,9 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
             self,
             settings=settings,
             is_sub_agent=is_sub_agent,
-            toolkit_module=toolkit,
-            checkpoint_module=ckpt,
-            mcp_manager_cls=MCPServerManager,
-            mcp_transport_factory=StdioMCPTransport,
-            mcp_client_factory=MCPClient,
-            runtime_recorder_cls=RuntimeRecorder,
-            permission_mode_cls=PermissionMode,
-            permission_enforcer_cls=PermissionEnforcer,
-            plan_controller_cls=PlanModeController,
-            logger=log,
         )
         if not is_sub_agent:
-            start_configured_runtime(
-                self,
-                load_hook_file_fn=load_hook_file,
-                logger=log,
-            )
+            start_configured_runtime(self)
 
         _active_engine = self
         log.info(
@@ -189,26 +144,6 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
             user_input=user_input,
             on_token=on_token,
             on_instrument=on_instrument,
-            append_message=self._append_message,
-            autosave_checkpoint=self._autosave_checkpoint,
-            maybe_start_memory_prefetch_fn=maybe_start_memory_prefetch,
-            prepare_round_inputs_fn=prepare_round_inputs,
-            generate_with_context_recovery_fn=generate_with_context_recovery,
-            record_completion_usage_fn=record_completion_usage,
-            build_tool_calls_fn=build_tool_calls,
-            notify_instrument_callbacks_fn=notify_instrument_callbacks,
-            split_plan_tool_calls_fn=split_plan_tool_calls,
-            append_plan_tool_results_fn=append_plan_tool_results,
-            execute_normal_tool_calls_fn=execute_normal_tool_calls,
-            toolkit_schemas_fn=toolkit.schemas,
-            toolkit_run_batch_fn=toolkit.run_batch,
-            persist_fn=persist_if_large,
-            memory_injector=self._inject_recalled_memories,
-            plan_prompt_builder=build_plan_mode_prompt,
-            plan_tool_defs=PLAN_TOOL_DEFS,
-            plan_tool_names=PLAN_TOOL_NAMES,
-            logger=log,
-            now=time.time,
         )
 
     def _autosave_checkpoint(self) -> None:
@@ -250,8 +185,6 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
         global _active_engine
         parent = _active_engine
 
-        from .subagent import get_sub_agent_config
-
         try:
             return execute_sub_agent_entry(
                 engine_cls=cls,
@@ -261,11 +194,6 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
                 prompt=prompt,
                 model=model,
                 allowed_tools=allowed_tools,
-                run_configured_sub_agent_fn=run_configured_sub_agent,
-                provider_factory=Provider,
-                toolkit_catalog_fn=toolkit.catalog,
-                config_lookup=get_sub_agent_config,
-                logger=log,
             )
         finally:
             _active_engine = parent  # 恢复父引擎为活跃引擎
@@ -286,19 +214,11 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
         global _active_engine
         parent = _active_engine
 
-        from .subagent import get_sub_agent_config
-
         try:
             return execute_sub_agents_parallel_entry(
                 engine_cls=cls,
                 parent=parent,
                 agent_specs=agent_specs,
-                run_configured_sub_agent_fn=run_configured_sub_agent,
-                run_sub_agent_team_fn=run_sub_agent_team,
-                provider_factory=Provider,
-                toolkit_catalog_fn=toolkit.catalog,
-                config_lookup=get_sub_agent_config,
-                logger=log,
             )
         finally:
             _active_engine = parent

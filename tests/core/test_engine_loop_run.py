@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from forgecc.core import engine_loop
 from forgecc.core.engine_loop import run_agent_loop
 from forgecc.core.permissions import PermissionMode
 
@@ -17,7 +18,7 @@ def _completion(text: str, invocations: list | None = None) -> MagicMock:
     return comp
 
 
-def test_run_agent_loop_returns_text_and_autosaves():
+def test_run_agent_loop_returns_text_and_autosaves(monkeypatch):
     state = SimpleNamespace(
         settings=SimpleNamespace(max_rounds=3, workspace="/tmp/workspace"),
         provider=object(),
@@ -42,43 +43,50 @@ def test_run_agent_loop_returns_text_and_autosaves():
         appended.append(message)
         state.transcript.append(message)
 
-    result = run_agent_loop(
-        state,
-        user_input="hi",
-        on_token=None,
-        on_instrument=None,
-        append_message=append_message,
-        autosave_checkpoint=lambda: autosaves.append(True),
-        maybe_start_memory_prefetch_fn=lambda **kwargs: "prefetched",
-        prepare_round_inputs_fn=lambda *args, **kwargs: SimpleNamespace(
+    state._append_message = append_message
+    state._autosave_checkpoint = lambda: autosaves.append(True)
+    state._inject_recalled_memories = lambda messages: messages
+
+    monkeypatch.setattr(engine_loop, "maybe_start_memory_prefetch", lambda **kwargs: "prefetched")
+    monkeypatch.setattr(
+        engine_loop,
+        "prepare_round_inputs",
+        lambda *args, **kwargs: SimpleNamespace(
             wire_messages=[{"role": "user", "content": "hi"}],
             tool_schemas=[],
             directive="system",
         ),
-        generate_with_context_recovery_fn=lambda **kwargs: SimpleNamespace(
-            completion=completed,
-            collapse_reset=False,
-        ),
-        record_completion_usage_fn=lambda *args, **kwargs: SimpleNamespace(
+    )
+    monkeypatch.setattr(
+        engine_loop,
+        "generate_with_context_recovery",
+        lambda **kwargs: SimpleNamespace(completion=completed, collapse_reset=False),
+    )
+    monkeypatch.setattr(
+        engine_loop,
+        "record_completion_usage",
+        lambda *args, **kwargs: SimpleNamespace(
             input_tokens=3,
             output_tokens=2,
             text_chars=4,
             invocation_count=0,
         ),
-        build_tool_calls_fn=lambda invocations: [],
-        notify_instrument_callbacks_fn=lambda *args, **kwargs: None,
-        split_plan_tool_calls_fn=lambda calls, **kwargs: ([], []),
-        append_plan_tool_results_fn=lambda *args, **kwargs: None,
-        execute_normal_tool_calls_fn=lambda **kwargs: None,
-        toolkit_schemas_fn=lambda: [],
-        toolkit_run_batch_fn=lambda calls: [],
-        persist_fn=lambda *args: "",
-        memory_injector=lambda messages: messages,
-        plan_prompt_builder=lambda *args, **kwargs: "",
-        plan_tool_defs=[],
-        plan_tool_names=set(),
-        logger=MagicMock(),
-        now=lambda: 123.0,
+    )
+    monkeypatch.setattr(engine_loop, "build_tool_calls", lambda invocations: [])
+    monkeypatch.setattr(engine_loop, "notify_instrument_callbacks", lambda *args, **kwargs: None)
+    monkeypatch.setattr(engine_loop, "split_plan_tool_calls", lambda calls, **kwargs: ([], []))
+    monkeypatch.setattr(engine_loop, "append_plan_tool_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(engine_loop, "execute_normal_tool_calls", lambda **kwargs: None)
+    monkeypatch.setattr(engine_loop.toolkit, "schemas", lambda: [])
+    monkeypatch.setattr(engine_loop.toolkit, "run_batch", lambda calls: [])
+    monkeypatch.setattr(engine_loop, "persist_if_large", lambda *args: "")
+    monkeypatch.setattr(engine_loop, "build_plan_mode_prompt", lambda *args, **kwargs: "")
+
+    result = run_agent_loop(
+        state,
+        user_input="hi",
+        on_token=None,
+        on_instrument=None,
     )
 
     assert result == "done"
