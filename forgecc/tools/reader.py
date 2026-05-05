@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 
-from ..toolkit import instrument
+from ..toolkit import tool
 from .paths import active_workspace_boundary_error, resolve_workspace_path
 
 log = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ _MAX_READ_BYTES = 512_000  # 拒绝读取超过 ~500 KB 的文件
 _MAX_READ_OUTPUT_CHARS = 40_000
 
 
-@instrument(
+@tool(
     name="read_file",
     description=(
         "Read a file and return its contents with line numbers. "

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from ..toolkit import instrument
+from ..toolkit import tool
 
 _VALID_AGENT_TYPES = {"explore", "plan", "verification", "general"}
 
@@ -25,7 +25,7 @@ def _team_result_int(value: object) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) else 0
 
 
-@instrument(
+@tool(
     name="team",
     description=(
         "Spawn multiple sub-agents in parallel. Each agent runs in a "

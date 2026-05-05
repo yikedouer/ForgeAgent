@@ -1,6 +1,6 @@
 """工具注册表 — 装饰器驱动的工具管理。
 
-每个工具都是用 @instrument() 装饰的普通函数。装饰器收集
+每个工具都是用 @tool() 装饰的普通函数。装饰器收集
 元数据（名称、描述、参数 schema）并注册到全局目录中。
 Engine 在运行时查询该目录来构建 LLM 的工具声明并分发调用。
 
@@ -30,29 +30,29 @@ _VALID_RISK_LEVELS = {"read", "write", "danger"}
 # ── 工具描述符 ───────────────────────────────────────
 
 @dataclass(frozen=True)
-class InstrumentSpec:
+class ToolSpec:
     name: str
     description: str
     parameters: dict          # JSON-Schema 片段
-    fn: Callable[..., str]    # 实际执行函数
+    handler: Callable[..., str]    # 实际执行函数
     readonly: bool = False    # 是否可并发执行
     risk_level: str = "write" # 'read' / 'write' / 'danger'
 
 
 # ── 全局工具目录 ───────────────────────────────────────
 
-_CATALOG: dict[str, InstrumentSpec] = {}
+_CATALOG: dict[str, ToolSpec] = {}
 
 
 def register_mcp_tools(server_name: str, client: object) -> tuple[str, ...]:
     """Expose tools from an initialized MCP client through the ForgeCC catalog."""
     registered: list[str] = []
     for mcp_spec in build_mcp_tool_specs(server_name, client):
-        _CATALOG[mcp_spec.name] = InstrumentSpec(
+        _CATALOG[mcp_spec.name] = ToolSpec(
             name=mcp_spec.name,
             description=mcp_spec.description,
             parameters=mcp_spec.parameters,
-            fn=mcp_spec.fn,
+            handler=mcp_spec.handler,
             readonly=mcp_spec.readonly,
             risk_level=mcp_spec.risk_level,
         )
@@ -60,7 +60,7 @@ def register_mcp_tools(server_name: str, client: object) -> tuple[str, ...]:
     return tuple(registered)
 
 
-def instrument(
+def tool(
     name: str,
     description: str,
     parameters: dict,
@@ -70,38 +70,38 @@ def instrument(
 ) -> Callable:
     """装饰器：将函数注册为工具。"""
     if not isinstance(name, str) or not name:
-        raise ValueError("invalid instrument name: expected non-empty string")
+        raise ValueError("invalid tool name: expected non-empty string")
     if not isinstance(parameters, dict):
-        raise ValueError("invalid instrument parameters: expected object schema")
+        raise ValueError("invalid tool parameters: expected object schema")
     if not isinstance(risk_level, str) or risk_level not in _VALID_RISK_LEVELS:
         allowed = ", ".join(sorted(_VALID_RISK_LEVELS))
-        raise ValueError(f"invalid risk_level '{risk_level}' for instrument '{name}'; expected: {allowed}")
+        raise ValueError(f"invalid risk_level '{risk_level}' for tool '{name}'; expected: {allowed}")
     if readonly and risk_level != "read":
         raise ValueError(
-            f"invalid readonly instrument '{name}': readonly tools must use risk_level 'read'"
+            f"invalid readonly tool '{name}': readonly tools must use risk_level 'read'"
         )
 
-    def decorator(fn: Callable[..., str]) -> Callable[..., str]:
-        spec = InstrumentSpec(
+    def decorator(handler: Callable[..., str]) -> Callable[..., str]:
+        spec = ToolSpec(
             name=name,
             description=description,
             parameters=parameters,
-            fn=fn,
+            handler=handler,
             readonly=readonly,
             risk_level=risk_level,
         )
         _CATALOG[name] = spec
         log.debug("工具注册: %s  risk=%s  readonly=%s", name, risk_level, readonly)
-        return fn
+        return handler
     return decorator
 
 
-def catalog() -> dict[str, InstrumentSpec]:
+def catalog() -> dict[str, ToolSpec]:
     """返回完整的工具目录（只读副本）。"""
     return dict(_CATALOG)
 
 
-def lookup(name: str) -> InstrumentSpec | None:
+def lookup(name: str) -> ToolSpec | None:
     return _CATALOG.get(name)
 
 
@@ -137,7 +137,7 @@ def _emit_hook(event: str, payload: dict) -> None:
 # ── 执行辅助 ───────────────────────────────────────────
 
 @dataclass
-class InstrumentResult:
+class ToolResult:
     call_id: str
     name: str
     output: str
@@ -148,22 +148,22 @@ def _string_id(value: object, fallback: str) -> str:
     return value if isinstance(value, str) and value else fallback
 
 
-def run_one(call_id: str, name: str, args: dict) -> InstrumentResult:
+def run_one(call_id: str, name: str, args: dict) -> ToolResult:
     """按名称执行单个工具。"""
     call_id = _string_id(call_id, "call")
     if not isinstance(name, str) or not name:
-        return InstrumentResult(
+        return ToolResult(
             call_id=call_id,
             name="",
-            output="Invalid instrument name: expected non-empty string",
+            output="Invalid tool name: expected non-empty string",
             ok=False,
         )
     spec = lookup(name)
     if spec is None:
-        return InstrumentResult(call_id=call_id, name=name,
-                                output=f"Unknown instrument: {name}", ok=False)
+        return ToolResult(call_id=call_id, name=name,
+                                output=f"Unknown tool: {name}", ok=False)
     if not isinstance(args, dict):
-        return InstrumentResult(
+        return ToolResult(
             call_id=call_id,
             name=name,
             output=f"Invalid arguments for {name}: arguments must be an object",
@@ -175,7 +175,7 @@ def run_one(call_id: str, name: str, args: dict) -> InstrumentResult:
     ]
     if missing:
         names = ", ".join(missing)
-        return InstrumentResult(
+        return ToolResult(
             call_id=call_id,
             name=name,
             output=f"Invalid arguments for {name}: missing required argument(s): {names}",
@@ -183,7 +183,7 @@ def run_one(call_id: str, name: str, args: dict) -> InstrumentResult:
         )
     type_error = arg_type_error(spec.parameters, args)
     if type_error:
-        return InstrumentResult(
+        return ToolResult(
             call_id=call_id,
             name=name,
             output=f"Invalid arguments for {name}: {type_error}",
@@ -196,7 +196,7 @@ def run_one(call_id: str, name: str, args: dict) -> InstrumentResult:
             denial = _enforcer.check(name, spec.risk_level, args)
         except Exception as exc:
             log.error("权限检查异常: %s — %s", name, exc)
-            return InstrumentResult(
+            return ToolResult(
                 call_id=call_id,
                 name=name,
                 output=f"Permission check failed: {exc}",
@@ -204,16 +204,16 @@ def run_one(call_id: str, name: str, args: dict) -> InstrumentResult:
             )
         if denial:
             log.warning("工具被拒绝: %s — %s", name, denial)
-            return InstrumentResult(call_id=call_id, name=name,
+            return ToolResult(call_id=call_id, name=name,
                                     output=denial, ok=False)
 
     _emit_hook("tool.before", {"call_id": call_id, "name": name, "args": args})
     try:
-        output = spec.fn(**args)
-        result = InstrumentResult(call_id=call_id, name=name, output=output)
+        output = spec.handler(**args)
+        result = ToolResult(call_id=call_id, name=name, output=output)
     except Exception as exc:
         log.error("工具执行异常: %s — %s", name, exc)
-        result = InstrumentResult(call_id=call_id, name=name,
+        result = ToolResult(call_id=call_id, name=name,
                                   output=f"Error: {exc}", ok=False)
     _emit_hook(
         "tool.after",
@@ -227,14 +227,14 @@ def run_one(call_id: str, name: str, args: dict) -> InstrumentResult:
     return result
 
 
-def run_batch(calls: list[tuple[str, str, dict]]) -> list[InstrumentResult]:
+def run_batch(calls: list[tuple[str, str, dict]]) -> list[ToolResult]:
     """批量执行工具调用，只读工具可并行执行。
 
-    每个元素为 (call_id, instrument_name, args)。
+    每个元素为 (call_id, tool_name, args)。
     保持输入列表的顺序。
     """
     if not isinstance(calls, list):
-        return [InstrumentResult(
+        return [ToolResult(
             call_id="call",
             name="",
             output="Invalid tool calls: calls must be a list",
@@ -243,10 +243,10 @@ def run_batch(calls: list[tuple[str, str, dict]]) -> list[InstrumentResult]:
     if not calls:
         return []
 
-    normalized: list[tuple[str, str, dict] | InstrumentResult] = []
+    normalized: list[tuple[str, str, dict] | ToolResult] = []
     for i, call in enumerate(calls):
         if not isinstance(call, tuple) or len(call) != 3:
-            normalized.append(InstrumentResult(
+            normalized.append(ToolResult(
                 call_id=f"call_{i}",
                 name="",
                 output="Invalid tool call: expected (call_id, name, args)",
@@ -254,10 +254,10 @@ def run_batch(calls: list[tuple[str, str, dict]]) -> list[InstrumentResult]:
             ))
             continue
         if not isinstance(call[1], str) or not call[1]:
-            normalized.append(InstrumentResult(
+            normalized.append(ToolResult(
                 call_id=_string_id(call[0], f"call_{i}"),
                 name="",
-                output="Invalid instrument name: expected non-empty string",
+                output="Invalid tool name: expected non-empty string",
                 ok=False,
             ))
             continue
@@ -283,9 +283,9 @@ def run_batch(calls: list[tuple[str, str, dict]]) -> list[InstrumentResult]:
             return results  # type: ignore[return-value]
 
     # 否则顺序执行（写操作不可重叠）
-    results: list[InstrumentResult] = []
+    results: list[ToolResult] = []
     for call in normalized:
-        if isinstance(call, InstrumentResult):
+        if isinstance(call, ToolResult):
             results.append(call)
             continue
         cid, name, args = call

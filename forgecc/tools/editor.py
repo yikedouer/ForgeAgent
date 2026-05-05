@@ -15,7 +15,7 @@ import difflib
 import logging
 import os
 
-from ..toolkit import instrument
+from ..toolkit import tool
 from .paths import active_workspace_boundary_error, resolve_workspace_path
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def _unified_diff(before: str, after: str, path: str) -> str:
     return "".join(diff)
 
 
-@instrument(
+@tool(
     name="edit_file",
     description=(
         "Apply a search-and-replace edit to a file. The `old_text` must match "

@@ -1,4 +1,4 @@
-"""工具层测试 — forgecc.instruments（read/write/edit/find/shell/memory）"""
+"""工具层测试 — forgecc.tools（read/write/edit/find/shell/memory）"""
 
 from __future__ import annotations
 
@@ -10,25 +10,25 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 # ── reader ─────────────────────────────────────────────────────
-from forgecc.instruments.reader import read_file, _MAX_READ_BYTES
+from forgecc.tools.reader import read_file, _MAX_READ_BYTES
 
 # ── writer ─────────────────────────────────────────────────────
-from forgecc.instruments.writer import write_file, _maybe_update_memory_index
+from forgecc.tools.writer import write_file, _maybe_update_memory_index
 
 # ── editor ─────────────────────────────────────────────────────
-from forgecc.instruments.editor import edit_file
+from forgecc.tools.editor import edit_file
 
 # ── finder ─────────────────────────────────────────────────────
-from forgecc.instruments.finder import glob_search, grep_search
-import forgecc.instruments.finder as finder_mod
+from forgecc.tools.finder import glob_search, grep_search
+import forgecc.tools.finder as finder_mod
 
 # ── shell ──────────────────────────────────────────────────────
-from forgecc.instruments.shell import shell, _check_safety, _track_directory
-import forgecc.instruments.shell as shell_mod
+from forgecc.tools.shell import shell, _check_safety, _track_directory
+import forgecc.tools.shell as shell_mod
 
 # ── agent ──────────────────────────────────────────────────────
-from forgecc.instruments.agent import agent
-from forgecc.instruments.team import team
+from forgecc.tools.agent import agent
+from forgecc.tools.team import team
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -196,7 +196,7 @@ class TestReadFile:
 # ═══════════════════════════════════════════════════════════════
 
 class TestWriteFile:
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_normal_write(self, mock_idx, tmp_path):
         target = str(tmp_path / "output.txt")
         result = write_file(target, "hello\nworld\n")
@@ -204,7 +204,7 @@ class TestWriteFile:
         assert os.path.isfile(target)
         assert open(target).read() == "hello\nworld\n"
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_path_trimmed(self, mock_idx, tmp_path):
         target = tmp_path / "output.txt"
 
@@ -214,14 +214,14 @@ class TestWriteFile:
         assert target.read_text(encoding="utf-8") == "hello"
         assert not (tmp_path / " output.txt ").exists()
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_parent_dir_creation(self, mock_idx, tmp_path):
         target = str(tmp_path / "a" / "b" / "c.txt")
         result = write_file(target, "nested")
         assert "Created" in result
         assert os.path.isfile(target)
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_overwrite(self, mock_idx, tmp_path):
         target = str(tmp_path / "over.txt")
         write_file(target, "v1")
@@ -229,7 +229,7 @@ class TestWriteFile:
         assert "Updated" in result
         assert open(target).read() == "v2"
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_empty_content(self, mock_idx, tmp_path):
         target = str(tmp_path / "empty.txt")
         result = write_file(target, "")
@@ -237,7 +237,7 @@ class TestWriteFile:
         assert "(0 lines)" in result
         assert open(target).read() == ""
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_non_string_content_rejected(self, mock_idx, tmp_path):
         target = tmp_path / "output.txt"
 
@@ -247,28 +247,28 @@ class TestWriteFile:
         assert not target.exists()
         mock_idx.assert_not_called()
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_empty_path_rejected(self, mock_idx):
         result = write_file("", "content")
 
         assert "INVALID PATH" in result
         mock_idx.assert_not_called()
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_non_string_path_rejected(self, mock_idx):
         result = write_file(123, "content")
 
         assert "INVALID PATH" in result
         mock_idx.assert_not_called()
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_directory_path_rejected(self, mock_idx, tmp_path):
         result = write_file(str(tmp_path), "content")
 
         assert "INVALID PATH" in result
         mock_idx.assert_not_called()
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_parent_path_as_file_rejected(self, mock_idx, tmp_path):
         parent = tmp_path / "parent.txt"
         parent.write_text("not a directory", encoding="utf-8")
@@ -279,7 +279,7 @@ class TestWriteFile:
         assert parent.read_text(encoding="utf-8") == "not a directory"
         mock_idx.assert_not_called()
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_relative_path_uses_active_workspace(self, mock_idx, tmp_path, monkeypatch):
         workspace = tmp_path / "workspace"
         other = tmp_path / "other"
@@ -300,7 +300,7 @@ class TestWriteFile:
         assert (workspace / "notes.txt").read_text(encoding="utf-8") == "hello"
         assert not (other / "notes.txt").exists()
 
-    @patch("forgecc.instruments.writer._maybe_update_memory_index")
+    @patch("forgecc.tools.writer._maybe_update_memory_index")
     def test_relative_path_cannot_escape_active_workspace(self, mock_idx, tmp_path, monkeypatch):
         workspace = tmp_path / "workspace"
         workspace.mkdir()
@@ -1112,11 +1112,11 @@ class TestShell:
 # 7. memory 工具
 # ═══════════════════════════════════════════════════════════════
 
-class TestMemoryInstruments:
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory", return_value="user_pref.md")
+class TestMemoryTools:
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory", return_value="user_pref.md")
     def test_memory_save(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
         result = memory_save(
             name="test",
             description="test memory",
@@ -1126,10 +1126,10 @@ class TestMemoryInstruments:
         assert "saved" in result.lower()
         mock_save.assert_called_once()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory", return_value="user_pref.md")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory", return_value="user_pref.md")
     def test_memory_save_trims_memory_type(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name="test",
@@ -1147,10 +1147,10 @@ class TestMemoryInstruments:
             "# Test",
         )
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory", return_value="user_pref.md")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory", return_value="user_pref.md")
     def test_memory_save_trims_name_and_description(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name=" test ",
@@ -1168,10 +1168,10 @@ class TestMemoryInstruments:
             "# Test",
         )
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory")
     def test_memory_save_empty_name_rejected(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name="",
@@ -1184,10 +1184,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_save.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory")
     def test_memory_save_non_string_name_rejected(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name=123,
@@ -1200,10 +1200,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_save.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory")
     def test_memory_save_empty_description_rejected(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name="test",
@@ -1216,10 +1216,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_save.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory")
     def test_memory_save_non_string_description_rejected(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name="test",
@@ -1232,10 +1232,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_save.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory")
     def test_memory_save_empty_content_rejected(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name="test",
@@ -1248,10 +1248,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_save.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory")
     def test_memory_save_non_string_content_rejected(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name="test",
@@ -1264,10 +1264,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_save.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory")
     def test_memory_save_invalid_type_rejected(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name="test",
@@ -1280,10 +1280,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_save.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.save_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.save_memory")
     def test_memory_save_non_string_type_rejected(self, mock_save, mock_ws):
-        from forgecc.instruments.memory import memory_save
+        from forgecc.tools.memory import memory_save
 
         result = memory_save(
             name="test",
@@ -1296,18 +1296,18 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_save.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.list_memories")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.list_memories")
     def test_memory_list_empty(self, mock_list, mock_ws):
-        from forgecc.instruments.memory import memory_list
+        from forgecc.tools.memory import memory_list
         mock_list.return_value = []
         result = memory_list()
         assert "No memories" in result
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.list_memories")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.list_memories")
     def test_memory_list_with_entries(self, mock_list, mock_ws):
-        from forgecc.instruments.memory import memory_list
+        from forgecc.tools.memory import memory_list
         entry = MagicMock()
         entry.type = "user"
         entry.filename = "user_pref.md"
@@ -1318,27 +1318,27 @@ class TestMemoryInstruments:
         assert "1 memories" in result
         assert "user_pref.md" in result
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.delete_memory", return_value=True)
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.delete_memory", return_value=True)
     def test_memory_delete_ok(self, mock_del, mock_ws):
-        from forgecc.instruments.memory import memory_delete
+        from forgecc.tools.memory import memory_delete
         result = memory_delete("user_pref.md")
         assert "Deleted" in result
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.delete_memory", return_value=True)
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.delete_memory", return_value=True)
     def test_memory_delete_trims_filename(self, mock_del, mock_ws):
-        from forgecc.instruments.memory import memory_delete
+        from forgecc.tools.memory import memory_delete
 
         result = memory_delete(" user_pref.md ")
 
         assert result == "Deleted memory: user_pref.md"
         mock_del.assert_called_once_with("/tmp/ws", "user_pref.md")
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.delete_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.delete_memory")
     def test_memory_delete_empty_filename_rejected(self, mock_del, mock_ws):
-        from forgecc.instruments.memory import memory_delete
+        from forgecc.tools.memory import memory_delete
 
         result = memory_delete("")
 
@@ -1346,10 +1346,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_del.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.delete_memory")
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.delete_memory")
     def test_memory_delete_non_string_filename_rejected(self, mock_del, mock_ws):
-        from forgecc.instruments.memory import memory_delete
+        from forgecc.tools.memory import memory_delete
 
         result = memory_delete(123)
 
@@ -1357,10 +1357,10 @@ class TestMemoryInstruments:
         mock_ws.assert_not_called()
         mock_del.assert_not_called()
 
-    @patch("forgecc.instruments.memory._get_workspace", return_value="/tmp/ws")
-    @patch("forgecc.instruments.memory.delete_memory", return_value=False)
+    @patch("forgecc.tools.memory._get_workspace", return_value="/tmp/ws")
+    @patch("forgecc.tools.memory.delete_memory", return_value=False)
     def test_memory_delete_not_found(self, mock_del, mock_ws):
-        from forgecc.instruments.memory import memory_delete
+        from forgecc.tools.memory import memory_delete
         result = memory_delete("no_such.md")
         assert "not found" in result
 
@@ -1369,7 +1369,7 @@ class TestMemoryInstruments:
 # 8. agent 工具
 # ═══════════════════════════════════════════════════════════════
 
-class TestAgentInstrument:
+class TestAgentTool:
     @patch("forgecc.core.engine.Engine.execute_sub_agent")
     def test_empty_description_rejected(self, mock_execute):
         result = agent("", "Do work")
@@ -1462,7 +1462,7 @@ class TestAgentInstrument:
 # 9. team 工具
 # ═══════════════════════════════════════════════════════════════
 
-class TestTeamInstrument:
+class TestTeamTool:
     @patch("forgecc.core.engine.Engine.execute_sub_agents_parallel")
     def test_non_object_agent_rejected(self, mock_execute):
         result = team(["bad"])

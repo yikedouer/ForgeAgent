@@ -73,7 +73,7 @@ def test_run_agent_loop_returns_text_and_autosaves(monkeypatch):
         ),
     )
     monkeypatch.setattr(engine_loop, "build_tool_calls", lambda invocations: [])
-    monkeypatch.setattr(engine_loop, "notify_instrument_callbacks", lambda *args, **kwargs: None)
+    monkeypatch.setattr(engine_loop, "notify_tool_callbacks", lambda *args, **kwargs: None)
     monkeypatch.setattr(engine_loop, "split_plan_tool_calls", lambda calls, **kwargs: ([], []))
     monkeypatch.setattr(engine_loop, "append_plan_tool_results", lambda *args, **kwargs: None)
     monkeypatch.setattr(engine_loop, "execute_normal_tool_calls", lambda **kwargs: None)
@@ -86,7 +86,7 @@ def test_run_agent_loop_returns_text_and_autosaves(monkeypatch):
         state,
         user_input="hi",
         on_token=None,
-        on_instrument=None,
+        on_tool=None,
     )
 
     assert result == "done"

@@ -4,15 +4,15 @@
 
 ### 1. 创建工具文件
 
-在 `forgecc/instruments/` 目录下创建新文件：
+在 `forgecc/tools/` 目录下创建新文件：
 
 ```python
-# forgecc/instruments/my_tool.py
+# forgecc/tools/my_tool.py
 
-from forgecc.toolkit import instrument
+from forgecc.toolkit import tool
 
 
-@instrument(
+@tool(
     name="my_tool",
     description="工具的简短描述（会展示给 LLM）",
     parameters={
@@ -37,20 +37,20 @@ def my_tool(param1: str, param2: bool = False) -> str:
 
 ### 2. 注册工具
 
-在 `forgecc/instruments/__init__.py` 中添加导入：
+在 `forgecc/tools/__init__.py` 中添加导入：
 
 ```python
-from forgecc.instruments import my_tool  # noqa: F401
+from forgecc.tools import my_tool  # noqa: F401
 ```
 
-导入时 `@instrument()` 装饰器会自动将工具注册到全局目录 `_CATALOG`。
+导入时 `@tool()` 装饰器会自动将工具注册到全局目录 `_CATALOG`。
 
 ### 3. 编写测试
 
-在 `tests/instruments/` 目录下添加测试：
+在 `tests/tools/` 目录下添加测试：
 
 ```python
-# tests/instruments/test_my_tool.py
+# tests/tools/test_my_tool.py
 
 from forgecc import toolkit
 

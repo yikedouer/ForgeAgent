@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from forgecc.core.engine_tools import execute_normal_tool_calls
-from forgecc.toolkit import InstrumentResult
+from forgecc.toolkit import ToolResult
 
 
 def test_execute_normal_tool_calls_logs_runs_persists_and_appends_messages():
@@ -12,7 +12,7 @@ def test_execute_normal_tool_calls_logs_runs_persists_and_appends_messages():
     results = execute_normal_tool_calls(
         session_id="session-1",
         calls=calls,
-        run_batch=lambda received: [InstrumentResult("call-1", "read_file", "raw")]
+        run_batch=lambda received: [ToolResult("call-1", "read_file", "raw")]
         if received == calls else [],
         append_message=appended.append,
         persist=lambda session_id, name, output: f"{session_id}:{name}:{output}",
@@ -41,7 +41,7 @@ def test_execute_normal_tool_calls_warns_when_persist_fails_and_appends_raw_outp
     results = execute_normal_tool_calls(
         session_id="session-1",
         calls=[("call-1", "read_file", {})],
-        run_batch=lambda _calls: [InstrumentResult("call-1", "read_file", "raw")],
+        run_batch=lambda _calls: [ToolResult("call-1", "read_file", "raw")],
         append_message=appended.append,
         persist=persist,
         warn=warnings.append,

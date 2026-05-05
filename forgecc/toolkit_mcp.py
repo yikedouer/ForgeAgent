@@ -10,29 +10,29 @@ from typing import Callable
 
 
 @dataclass(frozen=True)
-class MCPInstrumentSpec:
+class MCPToolSpec:
     name: str
     description: str
     parameters: dict
-    fn: Callable[..., str]
+    handler: Callable[..., str]
     readonly: bool = True
     risk_level: str = "read"
 
 
-def build_mcp_tool_specs(server_name: str, client: object) -> tuple[MCPInstrumentSpec, ...]:
+def build_mcp_tool_specs(server_name: str, client: object) -> tuple[MCPToolSpec, ...]:
     """Build toolkit-ready specs for tools exposed by an initialized MCP client."""
     if not isinstance(server_name, str) or not server_name.strip():
         raise ValueError("MCP server name must be a non-empty string")
     if not hasattr(client, "list_tools") or not hasattr(client, "call_tool"):
         raise ValueError("MCP client must provide list_tools() and call_tool()")
 
-    safe_server = _safe_instrument_name(server_name)
-    specs: list[MCPInstrumentSpec] = []
+    safe_server = _safe_tool_name(server_name)
+    specs: list[MCPToolSpec] = []
     for remote_tool in client.list_tools():
         remote_name = getattr(remote_tool, "name", "")
         if not isinstance(remote_name, str) or not remote_name.strip():
             raise ValueError("MCP tool name must be a non-empty string")
-        instrument_name = f"mcp__{safe_server}__{_safe_instrument_name(remote_name)}"
+        tool_name = f"mcp__{safe_server}__{_safe_tool_name(remote_name)}"
         description = getattr(remote_tool, "description", "") or remote_name
         input_schema = getattr(remote_tool, "input_schema", None)
         parameters = copy.deepcopy(input_schema) if isinstance(input_schema, dict) else {"type": "object"}
@@ -42,16 +42,16 @@ def build_mcp_tool_specs(server_name: str, client: object) -> tuple[MCPInstrumen
                 return _format_mcp_result(client.call_tool(tool_name, kwargs))
             return runner
 
-        specs.append(MCPInstrumentSpec(
-            name=instrument_name,
+        specs.append(MCPToolSpec(
+            name=tool_name,
             description=f"MCP {server_name.strip()}: {description}",
             parameters=parameters,
-            fn=make_runner(remote_name.strip()),
+            handler=make_runner(remote_name.strip()),
         ))
     return tuple(specs)
 
 
-def _safe_instrument_name(value: str) -> str:
+def _safe_tool_name(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_]", "_", value.strip())
     cleaned = re.sub(r"_+", "_", cleaned).strip("_")
     return cleaned or "tool"

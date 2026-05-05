@@ -1,4 +1,4 @@
-"""test_skill_instrument.py — skill 工具桥接测试。"""
+"""test_skill_tool.py — skill 工具桥接测试。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from forgecc.instruments.skill import skill
+from forgecc.tools.skill import skill
 from forgecc.skills.playbook import invalidate_cache
 
 
@@ -31,7 +31,7 @@ def _write_skill(
     )
 
 
-class TestSkillInstrument:
+class TestSkillTool:
     def test_empty_skill_name_rejected(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(Path, "home", lambda: tmp_path / "fakehome")

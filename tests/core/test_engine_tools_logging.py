@@ -4,7 +4,7 @@ from forgecc.core.engine_tools import (
     format_tool_call_log,
     format_tool_result_log,
 )
-from forgecc.toolkit import InstrumentResult
+from forgecc.toolkit import ToolResult
 
 
 def test_format_tool_call_log_summarizes_dict_args():
@@ -26,10 +26,10 @@ def test_format_tool_call_log_truncates_long_values_and_marks_invalid_args():
 
 def test_format_tool_result_log_reports_status_and_output_length():
     ok_message, ok_args = format_tool_result_log(
-        InstrumentResult("call-1", "read_file", "hello")
+        ToolResult("call-1", "read_file", "hello")
     )
     fail_message, fail_args = format_tool_result_log(
-        InstrumentResult("call-2", "write_file", "no", ok=False)
+        ToolResult("call-2", "write_file", "no", ok=False)
     )
 
     assert ok_message == "工具结果: %s %s → %d 字符"

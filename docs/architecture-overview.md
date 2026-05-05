@@ -27,7 +27,7 @@ ForgeCC 是一个 Think→Act→Observe 循环驱动的 Coding Agent，核心引
 │                  toolkit.py                       │
 │        （装饰器驱动的全局工具注册表）                │
 ├─────────────────────────────────────────────────┤
-│                instruments/                       │
+│                tools/                       │
 │   shell  reader  writer  editor  finder           │
 │   agent  team    skill   memory                   │
 │            （12 个内置工具实现）                    │
@@ -128,4 +128,4 @@ ForgeCC 是一个 Think→Act→Observe 循环驱动的 Coding Agent，核心引
 | `SubAgent` | core/subagent.py | 内置类型定义、自定义 Agent 发现 |
 | `Directive` | interface/directive.py | 系统提示词 7 大节组装 |
 | `Repl` | interface/repl.py | REPL 命令循环、会话管理 |
-| `InstrumentSpec` | toolkit.py | 工具元数据 + 执行函数封装 |
+| `ToolSpec` | toolkit.py | 工具元数据 + 执行函数封装 |

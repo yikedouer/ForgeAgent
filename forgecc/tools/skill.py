@@ -7,11 +7,11 @@
 
 from __future__ import annotations
 
-from ..toolkit import instrument
+from ..toolkit import tool
 from ..skills import playbook
 
 
-@instrument(
+@tool(
     name="skill",
     description=(
         "Invoke a registered skill (playbook) by name. "
@@ -60,7 +60,7 @@ def skill(skill_name: str, args: str = "") -> str:
             f"User arguments: {args or '(none)'}"
         )
         if result.get("allowed_tools"):
-            fork_prompt += f"\n\nYou may ONLY use these instruments: {', '.join(result['allowed_tools'])}"
+            fork_prompt += f"\n\nYou may ONLY use these tools: {', '.join(result['allowed_tools'])}"
 
         return Engine.execute_sub_agent(
             "general",

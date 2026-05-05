@@ -15,7 +15,7 @@ import re
 import shlex
 import subprocess
 
-from ..toolkit import instrument
+from ..toolkit import tool
 from .paths import active_workspace
 
 log = logging.getLogger(__name__)
@@ -204,7 +204,7 @@ def _extract_pwd_marker(output: str) -> tuple[str, str | None]:
     return content, pwd or None
 
 
-@instrument(
+@tool(
     name="shell",
     description=(
         "Run a shell command and return its combined stdout/stderr. "

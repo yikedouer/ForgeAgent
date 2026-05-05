@@ -1,4 +1,4 @@
-"""Path helpers shared by file instruments."""
+"""Path helpers shared by file tools."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def active_workspace() -> str | None:
 
 
 def resolve_workspace_path(path: str) -> str:
-    """Resolve relative instrument paths against the active engine workspace."""
+    """Resolve relative tool paths against the active engine workspace."""
     expanded = Path(os.path.expanduser(path))
     if expanded.is_absolute():
         return str(expanded)

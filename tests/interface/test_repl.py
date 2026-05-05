@@ -11,7 +11,7 @@ import pytest
 from forgecc.core.settings import Settings
 from forgecc.context.checkpoint import Checkpoint
 from forgecc.interface import directive as directive_mod
-from forgecc.interface.repl import ForgeREPL, main, _on_instrument
+from forgecc.interface.repl import ForgeREPL, main, _on_tool
 from forgecc.skills.playbook import invalidate_cache
 
 
@@ -157,7 +157,7 @@ class TestReplSkillInvocation:
         assert "Fork task" in calls[0][2]
 
 
-class TestInstrumentCallback:
+class TestToolCallback:
     def test_non_object_args_do_not_crash_tool_display(self, monkeypatch):
         printed = []
 
@@ -166,7 +166,7 @@ class TestInstrumentCallback:
             lambda *args, **kwargs: printed.append(args[0]),
         )
 
-        _on_instrument("write_file", ["bad"])
+        _on_tool("write_file", ["bad"])
 
         assert printed
         assert "<invalid args: list>" in printed[0]
@@ -408,10 +408,10 @@ class TestCliOverrides:
                 self._total_input_tokens = 12
                 self._total_output_tokens = 34
 
-            def run(self, prompt, on_token=None, on_instrument=None):
+            def run(self, prompt, on_token=None, on_tool=None):
                 assert prompt == "hello"
                 assert on_token is None
-                assert on_instrument is None
+                assert on_tool is None
                 return "done"
 
         monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
@@ -516,7 +516,7 @@ class TestCliOverrides:
                 built["restored"] = session_id
                 built["restore_model"] = restore_model
 
-            def run(self, prompt, on_token=None, on_instrument=None):
+            def run(self, prompt, on_token=None, on_tool=None):
                 built["prompt"] = prompt
                 return "done"
 
@@ -560,7 +560,7 @@ class TestCliOverrides:
                 self.close = MagicMock()
                 built["engine"] = self
 
-            def run(self, prompt, on_token=None, on_instrument=None):
+            def run(self, prompt, on_token=None, on_tool=None):
                 return "done"
 
         monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)
@@ -621,7 +621,7 @@ class TestCliOverrides:
                 built["restored"] = session_id
                 built["restore_model"] = restore_model
 
-            def run(self, prompt, on_token=None, on_instrument=None):
+            def run(self, prompt, on_token=None, on_tool=None):
                 built["prompt"] = prompt
                 return "done"
 
@@ -664,7 +664,7 @@ class TestDirectiveBuild:
 
         monkeypatch.setattr(directive_mod.subprocess, "check_output", fake_check_output)
         monkeypatch.setattr(directive_mod, "_project_rules", lambda workspace: "")
-        monkeypatch.setattr(directive_mod, "_instrument_manifest", lambda: "")
+        monkeypatch.setattr(directive_mod, "_tool_manifest", lambda: "")
         monkeypatch.setattr(directive_mod, "_memory_section", lambda workspace: "")
         monkeypatch.setattr(directive_mod.playbook, "describe_for_directive", lambda: "")
         monkeypatch.setattr(directive_mod, "build_agent_descriptions", lambda: "")
@@ -731,7 +731,7 @@ class TestDirectiveBuild:
                 built["restored"] = session_id
                 built["restore_model"] = restore_model
 
-            def run(self, prompt, on_token=None, on_instrument=None):
+            def run(self, prompt, on_token=None, on_tool=None):
                 built["prompt"] = prompt
                 return "done"
 
@@ -790,7 +790,7 @@ class TestDirectiveBuild:
                 self.enforcer = MagicMock()
                 built["engine_settings"] = settings
 
-            def run(self, prompt, on_token=None, on_instrument=None):
+            def run(self, prompt, on_token=None, on_tool=None):
                 built["prompt"] = prompt
                 return "done"
 
@@ -978,7 +978,7 @@ class TestDirectiveBuild:
                 self.enforcer = MagicMock()
                 built["engine_settings"] = settings
 
-            def run(self, prompt, on_token=None, on_instrument=None):
+            def run(self, prompt, on_token=None, on_tool=None):
                 return "done"
 
         monkeypatch.setattr("forgecc.interface.repl.Provider", FakeProvider)

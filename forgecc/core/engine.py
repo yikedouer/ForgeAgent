@@ -38,7 +38,7 @@ from .engine_session import (
 )
 
 # 确保首次导入时注册所有工具
-from .. import instruments as _instruments  # noqa: F401
+from .. import tools as _tools  # noqa: F401
 
 log = get_logger(__name__)
 
@@ -133,7 +133,7 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
 
     def run(self, user_input: str,
             on_token: Callable[[str], None] | None = None,
-            on_instrument: Callable[[str, dict], None] | None = None) -> str:
+            on_tool: Callable[[str, dict], None] | None = None) -> str:
         """处理一条用户消息，执行完整的 Agent 循环。
 
         循环持续运行，直到模型返回纯文本（无工具调用）
@@ -143,7 +143,7 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
             self,
             user_input=user_input,
             on_token=on_token,
-            on_instrument=on_instrument,
+            on_tool=on_tool,
         )
 
     def _autosave_checkpoint(self) -> None:

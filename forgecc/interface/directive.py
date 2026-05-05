@@ -49,7 +49,7 @@ def _project_rules(workspace: str) -> str:
     return ""
 
 
-def _instrument_manifest() -> str:
+def _tool_manifest() -> str:
     """每个工具一行的摘要，用于系统提示词。"""
     lines = []
     for spec in toolkit.catalog().values():
@@ -66,7 +66,7 @@ def build(settings: Settings, *, plan_mode_prompt: str | None = None) -> str:
 
     branch = _git_branch(settings.workspace)
     rules = _project_rules(settings.workspace)
-    instruments = _instrument_manifest()
+    tools = _tool_manifest()
 
     parts = [
         "You are ForgeCC, an interactive coding agent that helps users with "
@@ -157,8 +157,8 @@ def build(settings: Settings, *, plan_mode_prompt: str | None = None) -> str:
 
     parts += [
         "",
-        "# Available instruments",
-        instruments,
+        "# Available tools",
+        tools,
     ]
 
     if rules:

@@ -43,7 +43,7 @@ def test_built_mcp_runner_routes_to_original_remote_name_and_formats_text():
 
     spec = build_mcp_tool_specs("docs", client)[0]
 
-    assert spec.fn(query="ForgeCC") == "found"
+    assert spec.handler(query="ForgeCC") == "found"
     assert client.calls == [("search-docs", {"query": "ForgeCC"})]
 
 
@@ -54,4 +54,4 @@ def test_built_mcp_runner_serializes_non_text_result():
 
     spec = build_mcp_tool_specs("docs", client)[0]
 
-    assert spec.fn() == '{"structuredContent":{"count":2}}'
+    assert spec.handler() == '{"structuredContent":{"count":2}}'

@@ -20,7 +20,7 @@ def run_prompt_once(
     output_format: str,
     output_console: Any,
     on_token: Callable[[str], None] | None = None,
-    on_instrument: Callable[[str, object], None] | None = None,
+    on_tool: Callable[[str, object], None] | None = None,
 ) -> None:
     """Run a single prompt and emit the requested CLI output format."""
     try:
@@ -46,7 +46,7 @@ def run_prompt_once(
         answer = engine.run(
             prompt,
             on_token=on_token,
-            on_instrument=on_instrument,
+            on_tool=on_tool,
         )
         if answer:
             output_console.print()

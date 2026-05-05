@@ -262,9 +262,9 @@ class TestRunBasic:
         assert "budget exhausted" in result
 
     def test_non_object_tool_args_do_not_crash_logging(self, engine_env):
-        from forgecc.toolkit import instrument
+        from forgecc.toolkit import tool
 
-        @instrument("bad_args_tool", "test", {})
+        @tool("bad_args_tool", "test", {})
         def bad_args_tool() -> str:
             return "ok"
 
@@ -297,11 +297,11 @@ class TestRunBasic:
 
         assert result == "done"
         assert any(
-            msg.get("role") == "tool" and "Invalid instrument name" in msg.get("content", "")
+            msg.get("role") == "tool" and "Invalid tool name" in msg.get("content", "")
             for msg in eng.transcript
         )
 
-    def test_on_instrument_exception_does_not_abort_tool_loop(self, engine_env):
+    def test_on_tool_exception_does_not_abort_tool_loop(self, engine_env):
         eng, provider = engine_env
         inv = _make_invocation(call_id="c1", fn_name="read_file", fn_args={"path": "/tmp/test"})
         comp_tools = _make_completion(text="", invocations=[inv])
@@ -315,7 +315,7 @@ class TestRunBasic:
              patch("forgecc.interface.directive.build", return_value="sys"), \
              patch("forgecc.toolkit.run_batch") as mock_batch:
             mock_batch.return_value = [MagicMock(call_id="c1", name="read_file", output="ok")]
-            result = eng.run("Do something", on_instrument=broken_callback)
+            result = eng.run("Do something", on_tool=broken_callback)
 
         assert result == "done"
         assert mock_batch.called
@@ -619,7 +619,7 @@ class TestSubAgentTools:
         from forgecc import toolkit
         from forgecc.core.engine import Engine
 
-        @toolkit.instrument(
+        @toolkit.tool(
             name="read_file",
             description="read",
             parameters={"type": "object", "properties": {}},
@@ -628,7 +628,7 @@ class TestSubAgentTools:
         def _read_file():
             return "read"
 
-        @toolkit.instrument(
+        @toolkit.tool(
             name="write_file",
             description="write",
             parameters={"type": "object", "properties": {}},
@@ -659,7 +659,7 @@ class TestSubAgentTools:
         from forgecc.core.engine import Engine
 
         for name in ("read_file", "agent", "team"):
-            toolkit.instrument(
+            toolkit.tool(
                 name=name,
                 description=name,
                 parameters={"type": "object", "properties": {}},

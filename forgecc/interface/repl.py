@@ -67,7 +67,7 @@ def _on_token(tok: str) -> None:
     console.print(tok, end="", highlight=False)
 
 
-def _on_instrument(name: str, args: object) -> None:
+def _on_tool(name: str, args: object) -> None:
     if isinstance(args, dict):
         brief = ", ".join(f"{k}={repr(v)[:60]}" for k, v in args.items())
     else:
@@ -99,7 +99,7 @@ class ForgeREPL(ForgeReplCommandMixin, cmd.Cmd):
         self.engine = engine
         self._console = console
         self._on_token = _on_token
-        self._on_instrument = _on_instrument
+        self._on_tool = _on_tool
         self._close_engine = _close_engine
         self.prompt = "\nYou > "
         self._setup_plan_approval()
@@ -126,7 +126,7 @@ class ForgeREPL(ForgeReplCommandMixin, cmd.Cmd):
             answer = self.engine.run(
                 line,
                 on_token=_on_token,
-                on_instrument=_on_instrument,
+                on_tool=_on_tool,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]interrupted[/yellow]")
@@ -216,7 +216,7 @@ def main() -> None:
             output_format=args.output_format,
             output_console=console,
             on_token=_on_token,
-            on_instrument=_on_instrument,
+            on_tool=_on_tool,
         )
         return
 

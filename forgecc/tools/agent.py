@@ -8,12 +8,12 @@
 
 from __future__ import annotations
 
-from ..toolkit import instrument
+from ..toolkit import tool
 
 _VALID_AGENT_TYPES = {"explore", "plan", "verification", "general"}
 
 
-@instrument(
+@tool(
     name="agent",
     description=(
         "Spawn a sub-agent to handle an isolated task. Choose a type: "

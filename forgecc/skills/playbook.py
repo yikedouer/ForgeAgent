@@ -180,7 +180,7 @@ def describe_for_directive() -> str:
         parts.append("")
 
     if auto:
-        parts.append("Skills for automatic use (call via the skill instrument):")
+        parts.append("Skills for automatic use (call via the skill tool):")
         for p in auto:
             parts.append(f"  - {p.name}: {p.description}")
             if p.hint:

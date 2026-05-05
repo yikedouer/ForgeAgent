@@ -7,13 +7,13 @@ import logging
 import os
 import re
 
-from ..toolkit import instrument
+from ..toolkit import tool
 from .paths import active_workspace_boundary_error, resolve_workspace_path
 
 log = logging.getLogger(__name__)
 
 
-@instrument(
+@tool(
     name="glob_search",
     description=(
         "Find files matching a glob pattern. Returns up to `limit` paths, "
@@ -69,7 +69,7 @@ def glob_search(pattern: str, root: str = ".", limit: int = 200) -> str:
     return "\n".join(hits)
 
 
-@instrument(
+@tool(
     name="grep_search",
     description=(
         "Search file contents for a regex pattern. Returns matching lines "

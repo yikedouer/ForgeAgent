@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 from ..context import checkpoint as ckpt
-from ..instruments.skill import skill as invoke_skill
+from ..tools.skill import skill as invoke_skill
 from ..memory.store import get_memory_dir, list_memories, save_memory
 from ..skills import playbook
 from .export import render_transcript_markdown
@@ -67,7 +67,7 @@ class ForgeReplCommandMixin:
             answer = self.engine.run(
                 prompt,
                 on_token=self._on_token,
-                on_instrument=self._on_instrument,
+                on_tool=self._on_tool,
             )
             if answer:
                 self._console.print()

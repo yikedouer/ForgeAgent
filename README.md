@@ -68,11 +68,11 @@
 ┌────────────▼────────────────┐      ┌───────────────▼────────────────┐
 │       toolkit.py            │      │         memory/                │
 │  装饰器驱动的工具注册表       │      │  store + recall + prefetch     │
-│  @instrument(risk_level=..) │      │  跨会话持久化记忆               │
+│  @tool(risk_level=..) │      │  跨会话持久化记忆               │
 └────────────┬────────────────┘      └────────────────────────────────┘
              │
 ┌────────────▼───────────────────────────────────────────────────────┐
-│                     instruments/                                    │
+│                     tools/                                    │
 │  shell │ reader │ writer │ editor │ finder │ memory │ skill │ agent│
 │  每个工具标注 risk_level（read / write / danger）                    │
 └────────────────────────────────────────────────────────────────────┘
@@ -311,7 +311,7 @@ ForgeCC/
 │   │   ├── tool_storage.py   (195)  #   大工具结果持久化到磁盘
 │   │   └── checkpoint.py     (291)  #   会话检查点（UTF-8 中文友好）
 │   │
-│   ├── instruments/                 # ── 工具实现 ──
+│   ├── tools/                 # ── 工具实现 ──
 │   │   ├── reader.py          (97)  #   read_file — 带行号文件读取
 │   │   ├── writer.py          (78)  #   write_file — 创建 / 覆写文件
 │   │   ├── editor.py          (96)  #   edit_file — 唯一性约束的搜索替换
@@ -349,7 +349,7 @@ ForgeCC/
     ├── test_toolkit_schema.py       #   JSON Schema 参数校验（4 用例）
     ├── core/                        #   核心层测试（310 用例）
     ├── context/                     #   上下文管理测试（144 用例）
-    ├── instruments/                 #   工具实现测试（163 用例）
+    ├── tools/                 #   工具实现测试（163 用例）
     ├── interface/                   #   用户交互测试（53 用例）
     ├── memory/                      #   记忆系统测试（89 用例）
     └── skills/                      #   技能系统测试（21 用例）
@@ -372,10 +372,10 @@ engine.transcript = [
 
 就是 `list[dict]`，完全兼容 OpenAI Chat Completion API 格式。Engine 的所有操作都围绕这个列表进行。
 
-### 2. Instrument（工具）
+### 2. Tool（工具）
 
 ```python
-@instrument(
+@tool(
     name="read_file",
     description="Read a file with line numbers",
     parameters={...},       # JSON Schema
@@ -386,7 +386,7 @@ def read_file(path: str) -> str:
     ...
 ```
 
-工具是**普通函数**（不是类），通过 `@instrument()` 装饰器自动注册到全局目录 `_CATALOG`。装饰器在模块导入时执行，这就是为什么 `instruments/__init__.py` 会触发所有子模块的导入。
+工具是**普通函数**（不是类），通过 `@tool()` 装饰器自动注册到全局目录 `_CATALOG`。装饰器在模块导入时执行，这就是为什么 `tools/__init__.py` 会触发所有子模块的导入。
 
 ### 3. Permission Enforcer（权限执行器）
 
@@ -558,7 +558,7 @@ return "(round budget exhausted)"
 
 ### `toolkit.py` — 工具注册表（293 行）
 
-- `@instrument(name, description, parameters, readonly, risk_level)` — 注册装饰器
+- `@tool(name, description, parameters, readonly, risk_level)` — 注册装饰器
 - `catalog()` — 返回所有工具的副本（修改不影响内部状态）
 - `lookup(name)` — 查找单个工具
 - `schemas()` — 返回 OpenAI tool schema 格式
@@ -620,7 +620,7 @@ python -m forgecc
 │         │       ├── core/plan_mode.py   → 分离计划模式工具
 │         │       ├── toolkit.py          → run_batch() 执行工具调用
 │         │       │   ├── permissions.py  → 权限检查
-│         │       │   └── instruments/*   → 具体工具实现
+│         │       │   └── tools/*   → 具体工具实现
 │         │       ├── tool_storage.py     → 大结果持久化到磁盘
 │         │       └── 结果写回 transcript → 回到循环开始
 │         │
@@ -632,15 +632,15 @@ python -m forgecc
 ```
 toolkit.run_one(call_id, name, args)
 │
-├── lookup(name) → InstrumentSpec
+├── lookup(name) → ToolSpec
 │
 ├── enforcer.check(risk_level, path, args)
 │   ├── mode × risk_level → 允许 / 拒绝 / 询问
 │   └── _check_workspace_boundary(path) → 路径在 workspace 内？
 │
-├── [允许] → spec.fn(**args) → InstrumentResult(ok=True)
-├── [拒绝] → InstrumentResult(ok=False, reason=...)
-└── [异常] → InstrumentResult(ok=False, output=traceback)
+├── [允许] → spec.fn(**args) → ToolResult(ok=True)
+├── [拒绝] → ToolResult(ok=False, reason=...)
+└── [异常] → ToolResult(ok=False, output=traceback)
 ```
 
 ---
@@ -663,12 +663,12 @@ toolkit.run_one(call_id, name, args)
 
 | 步骤 | 文件 | 行数 | 学什么 |
 |------|------|------|--------|
-| 4 | `toolkit.py` | 293 | @instrument 装饰器、全局目录、run_one/run_batch、工具 Hook |
+| 4 | `toolkit.py` | 293 | @tool 装饰器、全局目录、run_one/run_batch、工具 Hook |
 | 5 | `toolkit_schema.py` | 41 | 工具参数 schema 入口——root object、unknown 参数、additionalProperties |
 | 6 | `toolkit_schema_value.py` | 277 | JSON Schema value 校验——类型、组合 schema、数组/对象边界 |
-| 6 | `instruments/reader.py` | 97 | **最简单的工具**——理解 @instrument 用法 |
-| 7 | `instruments/shell.py` | 291 | 两阶段安全护栏（静态拒绝 + 超时保护） |
-| 8 | `instruments/editor.py` | 96 | 唯一性约束设计——防止歧义修改 |
+| 6 | `tools/reader.py` | 97 | **最简单的工具**——理解 @tool 用法 |
+| 7 | `tools/shell.py` | 291 | 两阶段安全护栏（静态拒绝 + 超时保护） |
+| 8 | `tools/editor.py` | 96 | 唯一性约束设计——防止歧义修改 |
 
 > 学完这五个文件，你就理解了工具从注册到执行的完整流程。
 
@@ -725,12 +725,12 @@ toolkit.run_one(call_id, name, args)
 
 | # | 决策 | 原因 |
 |---|------|------|
-| 1 | **装饰器注册而非类继承** | 工具是函数不是类，`@instrument()` 自动注册到全局目录，避免复杂继承层级 |
-| 2 | **frozen dataclass** | Settings / Playbook / InstrumentSpec 都是不可变的，修改通过 `replace()` 创建副本 |
-| 3 | **toolkit 居于根层** | 作为 instruments 和 core 之间的桥梁，避免跨包循环依赖 |
-| 4 | **权限与工具声明分离** | risk_level 在 @instrument 上声明，enforcement 在 toolkit.run_one() 统一拦截 |
+| 1 | **装饰器注册而非类继承** | 工具是函数不是类，`@tool()` 自动注册到全局目录，避免复杂继承层级 |
+| 2 | **frozen dataclass** | Settings / Playbook / ToolSpec 都是不可变的，修改通过 `replace()` 创建副本 |
+| 3 | **toolkit 居于根层** | 作为 tools 和 core 之间的桥梁，避免跨包循环依赖 |
+| 4 | **权限与工具声明分离** | risk_level 在 @tool 上声明，enforcement 在 toolkit.run_one() 统一拦截 |
 | 5 | **延迟导入打破循环** | engine ↔ interface 的循环依赖通过函数内 `import` 解决 |
-| 6 | **副作用导入触发注册** | `instruments/__init__.py` 导入所有子模块，触发装饰器执行完成工具注册 |
+| 6 | **副作用导入触发注册** | `tools/__init__.py` 导入所有子模块，触发装饰器执行完成工具注册 |
 | 7 | **压缩配对安全** | 切分时向回走避免拆断 tool_use + tool_result 对，保证对话逻辑完整 |
 | 8 | **ContextWindowError 自恢复** | 上下文超限自动 prune 并重试一次，无需用户干预 |
 | 9 | **Autocompact 熔断器** | 连续 3 次 LLM 摘要失败 → 跳过，防止无限重试浪费 API |
@@ -782,8 +782,8 @@ python -m pytest tests/ -v
 | compaction autocompact | `context/test_compaction_autocompact.py` | 8 | LLM 摘要压缩、熔断器、失败计数、文件路径恢复 |
 | compaction tool entries | `context/test_compaction_tool_entries.py` | 2 | snip-stale 工具参数解析、可裁剪工具结果收集 |
 | compaction tokens | `context/test_compaction_tokens.py` | 3 | 字符到 token 估算、消息 token、对话 token 聚合 |
-| instruments | `instruments/test_instruments.py` | 158 | reader/writer/editor/finder/shell/memory |
-| skill instrument | `instruments/test_skill_instrument.py` | 5 | fork skill 到子 Agent 的桥接 |
+| tools | `tools/test_tools.py` | 158 | reader/writer/editor/finder/shell/memory |
+| skill tool | `tools/test_skill_tool.py` | 5 | fork skill 到子 Agent 的桥接 |
 | cli startup | `interface/test_cli_startup.py` | 7 | CLI 参数校验、resume/latest、Settings 覆盖、输出格式约束 |
 | repl | `interface/test_repl.py` | 29 | slash 命令别名、skill 调用、模型/CLI 切换、token 显示、JSONL 导出、Engine 资源关闭 |
 | one shot | `interface/test_one_shot.py` | 3 | CLI 单次 prompt 的 text/JSON 输出、token 用量和异常关闭 |

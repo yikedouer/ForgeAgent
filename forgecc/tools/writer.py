@@ -6,13 +6,13 @@ import logging
 import os
 from pathlib import Path
 
-from ..toolkit import instrument
+from ..toolkit import tool
 from .paths import active_workspace_boundary_error, resolve_workspace_path
 
 log = logging.getLogger(__name__)
 
 
-@instrument(
+@tool(
     name="write_file",
     description=(
         "Write content to a file, creating parent directories as needed. "

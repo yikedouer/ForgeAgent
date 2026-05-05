@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from forgecc.core.engine_tools import (
     build_tool_calls,
-    notify_instrument_callbacks,
+    notify_tool_callbacks,
     split_plan_tool_calls,
 )
 
@@ -51,7 +51,7 @@ def test_split_plan_tool_calls_keeps_order_with_non_string_names_as_normal():
     ]
 
 
-def test_notify_instrument_callbacks_suppresses_callback_errors():
+def test_notify_tool_callbacks_suppresses_callback_errors():
     warnings = []
     seen = []
     invocations = [
@@ -64,7 +64,7 @@ def test_notify_instrument_callbacks_suppresses_callback_errors():
         if name == "read_file":
             raise RuntimeError("callback failed")
 
-    notify_instrument_callbacks(invocations, callback, warn=warnings.append)
+    notify_tool_callbacks(invocations, callback, warn=warnings.append)
 
     assert seen == [
         ("read_file", {"path": "a.py"}),

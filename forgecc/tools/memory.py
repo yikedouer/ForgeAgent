@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-from ..toolkit import instrument
+from ..toolkit import tool
 from ..memory.store import (
     save_memory,
     list_memories,
@@ -31,7 +31,7 @@ def _get_workspace() -> str:
 
 # ── memory_save ─────────────────────────────────────────────
 
-@instrument(
+@tool(
     name="memory_save",
     description=(
         "Save a persistent memory that will be available across sessions. "
@@ -99,7 +99,7 @@ def memory_save(
 
 # ── memory_list ─────────────────────────────────────────────
 
-@instrument(
+@tool(
     name="memory_list",
     description="List all persistent memories for the current project.",
     parameters={
@@ -126,7 +126,7 @@ def memory_list() -> str:
 
 # ── memory_delete ───────────────────────────────────────────
 
-@instrument(
+@tool(
     name="memory_delete",
     description="Delete a persistent memory by its filename.",
     parameters={

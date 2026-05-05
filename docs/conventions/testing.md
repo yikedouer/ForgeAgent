@@ -32,7 +32,7 @@ tests/
 │   ├── test_subagent_discovery.py # 自定义 Agent 发现测试
 │   ├── test_subagent_tools.py # 子 Agent 工具集解析测试
 │   └── ...
-├── instruments/
+├── tools/
 │   ├── test_shell.py    # shell 工具测试
 │   ├── test_reader.py   # read_file 工具测试
 │   └── ...
@@ -110,7 +110,7 @@ def test_compaction_budget_truncation_preserves_system():
 
 ```bash
 uv run pytest tests/core/           # 核心引擎
-uv run pytest tests/instruments/     # 工具
+uv run pytest tests/tools/     # 工具
 uv run pytest tests/context/         # 上下文压缩
 uv run pytest tests/memory/          # 记忆系统
 uv run pytest tests/skills/          # 技能系统
@@ -149,9 +149,9 @@ def test_engine_handles_text_response(mock_settings, mock_provider):
 
 ```python
 def test_custom_tool():
-    from forgecc.toolkit import instrument
+    from forgecc.toolkit import tool
 
-    @instrument(name="test_tool", description="test", parameters={})
+    @tool(name="test_tool", description="test", parameters={})
     def test_tool():
         return "ok"
 

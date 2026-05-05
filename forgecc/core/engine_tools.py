@@ -39,7 +39,7 @@ def split_plan_tool_calls(
     return plan_calls, normal_calls
 
 
-def notify_instrument_callbacks(
+def notify_tool_callbacks(
     invocations: Iterable[object],
     callback: Callable[[str, dict], None] | None,
     *,

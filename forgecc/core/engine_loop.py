@@ -17,7 +17,7 @@ from .engine_tools import (
     append_plan_tool_results,
     build_tool_calls,
     execute_normal_tool_calls,
-    notify_instrument_callbacks,
+    notify_tool_callbacks,
     split_plan_tool_calls,
 )
 from .log import get_logger
@@ -194,7 +194,7 @@ def run_agent_loop(
     *,
     user_input: str,
     on_token: Callable[[str], None] | None,
-    on_instrument: Callable[[str, dict], None] | None,
+    on_tool: Callable[[str, dict], None] | None,
 ) -> str:
     """Process one user message through the full Agent loop."""
     append_message = state._append_message
@@ -258,9 +258,9 @@ def run_agent_loop(
             return completion.text
 
         all_calls = build_tool_calls(completion.invocations)
-        notify_instrument_callbacks(
+        notify_tool_callbacks(
             completion.invocations,
-            on_instrument,
+            on_tool,
             warn=log.warning,
         )
 

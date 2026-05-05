@@ -10,9 +10,9 @@ import pytest
 
 import forgecc.toolkit as tk
 from forgecc.toolkit import (
-    InstrumentSpec,
-    InstrumentResult,
-    instrument,
+    ToolSpec,
+    ToolResult,
+    tool,
     catalog,
     lookup,
     schemas,
@@ -27,21 +27,21 @@ from forgecc.core.mcp import MCPTool
 # ── 辅助：注册一个测试工具 ────────────────────────────────
 
 def _register_echo():
-    @instrument("echo", "Echo tool", {"type": "object", "properties": {"text": {"type": "string"}}})
+    @tool("echo", "Echo tool", {"type": "object", "properties": {"text": {"type": "string"}}})
     def echo(text: str = "") -> str:
         return f"echo: {text}"
     return echo
 
 
 def _register_readonly():
-    @instrument("reader", "Read tool", {}, readonly=True, risk_level="read")
+    @tool("reader", "Read tool", {}, readonly=True, risk_level="read")
     def reader() -> str:
         return "read-ok"
     return reader
 
 
 def _register_failing():
-    @instrument("fail_tool", "Always fails", {})
+    @tool("fail_tool", "Always fails", {})
     def fail_tool() -> str:
         raise RuntimeError("boom")
     return fail_tool
@@ -62,7 +62,7 @@ class FakeMCPClient:
 
 
 def _register_required():
-    @instrument(
+    @tool(
         "required_tool",
         "Tool with required args",
         {
@@ -77,7 +77,7 @@ def _register_required():
 
 
 def _register_typed():
-    @instrument(
+    @tool(
         "typed_tool",
         "Tool with typed args",
         {
@@ -105,7 +105,7 @@ def _register_typed():
 
 
 def _register_number_tool():
-    @instrument(
+    @tool(
         "number_tool",
         "Tool with number arg",
         {
@@ -120,7 +120,7 @@ def _register_number_tool():
 
 
 def _register_nullable_tool():
-    @instrument(
+    @tool(
         "nullable_tool",
         "Tool with nullable arg",
         {
@@ -134,7 +134,7 @@ def _register_nullable_tool():
 
 
 def _register_anyof_tool():
-    @instrument(
+    @tool(
         "anyof_tool",
         "Tool with anyOf arg",
         {
@@ -156,7 +156,7 @@ def _register_anyof_tool():
 
 
 def _register_oneof_tool():
-    @instrument(
+    @tool(
         "oneof_tool",
         "Tool with oneOf arg",
         {
@@ -178,7 +178,7 @@ def _register_oneof_tool():
 
 
 def _register_allof_tool():
-    @instrument(
+    @tool(
         "allof_tool",
         "Tool with allOf arg",
         {
@@ -200,7 +200,7 @@ def _register_allof_tool():
 
 
 def _register_not_tool():
-    @instrument(
+    @tool(
         "not_tool",
         "Tool with disallowed schema",
         {
@@ -220,7 +220,7 @@ def _register_not_tool():
 
 
 def _register_string_length_tool():
-    @instrument(
+    @tool(
         "string_length_tool",
         "Tool with string length limits",
         {
@@ -241,7 +241,7 @@ def _register_string_length_tool():
 
 
 def _register_number_range_tool():
-    @instrument(
+    @tool(
         "number_range_tool",
         "Tool with number range limits",
         {
@@ -262,7 +262,7 @@ def _register_number_range_tool():
 
 
 def _register_exclusive_number_range_tool():
-    @instrument(
+    @tool(
         "exclusive_number_range_tool",
         "Tool with exclusive number range limits",
         {
@@ -283,7 +283,7 @@ def _register_exclusive_number_range_tool():
 
 
 def _register_pattern_tool():
-    @instrument(
+    @tool(
         "pattern_tool",
         "Tool with string pattern",
         {
@@ -303,7 +303,7 @@ def _register_pattern_tool():
 
 
 def _register_array_length_tool():
-    @instrument(
+    @tool(
         "array_length_tool",
         "Tool with array length limits",
         {
@@ -325,7 +325,7 @@ def _register_array_length_tool():
 
 
 def _register_prefix_items_tool():
-    @instrument(
+    @tool(
         "prefix_items_tool",
         "Tool with tuple-like array args",
         {
@@ -350,7 +350,7 @@ def _register_prefix_items_tool():
 
 
 def _register_empty_array_tool():
-    @instrument(
+    @tool(
         "empty_array_tool",
         "Tool with disallowed array items",
         {
@@ -370,7 +370,7 @@ def _register_empty_array_tool():
 
 
 def _register_unique_items_tool():
-    @instrument(
+    @tool(
         "unique_items_tool",
         "Tool with unique array items",
         {
@@ -391,7 +391,7 @@ def _register_unique_items_tool():
 
 
 def _register_contains_tool():
-    @instrument(
+    @tool(
         "contains_tool",
         "Tool with required matching array item",
         {
@@ -412,7 +412,7 @@ def _register_contains_tool():
 
 
 def _register_contains_count_tool():
-    @instrument(
+    @tool(
         "contains_count_tool",
         "Tool with counted matching array items",
         {
@@ -435,7 +435,7 @@ def _register_contains_count_tool():
 
 
 def _register_const_tool():
-    @instrument(
+    @tool(
         "const_tool",
         "Tool with const arg",
         {
@@ -455,7 +455,7 @@ def _register_const_tool():
 
 
 def _register_multiple_of_tool():
-    @instrument(
+    @tool(
         "multiple_of_tool",
         "Tool with numeric multipleOf",
         {
@@ -475,7 +475,7 @@ def _register_multiple_of_tool():
 
 
 def _register_nested():
-    @instrument(
+    @tool(
         "nested_tool",
         "Tool with array item schema",
         {
@@ -506,7 +506,7 @@ def _register_nested():
 
 
 def _register_object_map():
-    @instrument(
+    @tool(
         "object_map_tool",
         "Tool with free-form object args",
         {
@@ -525,7 +525,7 @@ def _register_object_map():
 
 
 def _register_typed_object_map():
-    @instrument(
+    @tool(
         "typed_object_map_tool",
         "Tool with typed free-form object args",
         {
@@ -544,7 +544,7 @@ def _register_typed_object_map():
 
 
 def _register_sized_object_map():
-    @instrument(
+    @tool(
         "sized_object_map_tool",
         "Tool with object size limits",
         {
@@ -566,7 +566,7 @@ def _register_sized_object_map():
 
 
 def _register_named_object_map():
-    @instrument(
+    @tool(
         "named_object_map_tool",
         "Tool with object key name limits",
         {
@@ -590,7 +590,7 @@ def _register_named_object_map():
 
 
 def _register_patterned_object_map():
-    @instrument(
+    @tool(
         "patterned_object_map_tool",
         "Tool with pattern-based object value schemas",
         {
@@ -614,7 +614,7 @@ def _register_patterned_object_map():
 
 
 def _register_strict_patterned_object_map():
-    @instrument(
+    @tool(
         "strict_patterned_object_map_tool",
         "Tool with only pattern-based object keys",
         {
@@ -638,7 +638,7 @@ def _register_strict_patterned_object_map():
 
 
 def _register_freeform_root():
-    @instrument(
+    @tool(
         "freeform_root_tool",
         "Tool with free-form root args",
         {
@@ -652,7 +652,7 @@ def _register_freeform_root():
 
 
 def _register_strict_patterned_root():
-    @instrument(
+    @tool(
         "strict_patterned_root_tool",
         "Tool with only pattern-based root args",
         {
@@ -669,7 +669,7 @@ def _register_strict_patterned_root():
 
 
 def _register_dependent_required_tool():
-    @instrument(
+    @tool(
         "dependent_required_tool",
         "Tool with dependent required args",
         {
@@ -691,7 +691,7 @@ def _register_dependent_required_tool():
 
 
 def _register_dependent_schema_tool():
-    @instrument(
+    @tool(
         "dependent_schema_tool",
         "Tool with dependent object schemas",
         {
@@ -717,7 +717,7 @@ def _register_dependent_schema_tool():
 
 
 def _register_conditional_schema_tool():
-    @instrument(
+    @tool(
         "conditional_schema_tool",
         "Tool with conditional object schema",
         {
@@ -750,7 +750,7 @@ def _register_conditional_schema_tool():
 
 
 def _register_conditional_default_additional_tool():
-    @instrument(
+    @tool(
         "conditional_default_additional_tool",
         "Tool with conditional object schema defaults",
         {
@@ -783,46 +783,46 @@ def _register_conditional_default_additional_tool():
 # 2.1 数据类
 # ═══════════════════════════════════════════════════════════
 
-class TestInstrumentSpec:
+class TestToolSpec:
     def test_frozen(self):
-        spec = InstrumentSpec(name="x", description="d", parameters={}, fn=lambda: "")
+        spec = ToolSpec(name="x", description="d", parameters={}, handler=lambda: "")
         with pytest.raises(FrozenInstanceError):
             spec.name = "changed"
 
     def test_defaults(self):
-        spec = InstrumentSpec(name="x", description="d", parameters={}, fn=lambda: "")
+        spec = ToolSpec(name="x", description="d", parameters={}, handler=lambda: "")
         assert spec.readonly is False
         assert spec.risk_level == "write"
 
 
-class TestInstrumentResult:
+class TestToolResult:
     def test_default_ok(self):
-        r = InstrumentResult(call_id="c1", name="t", output="out")
+        r = ToolResult(call_id="c1", name="t", output="out")
         assert r.ok is True
 
     def test_explicit_ok_false(self):
-        r = InstrumentResult(call_id="c1", name="t", output="err", ok=False)
+        r = ToolResult(call_id="c1", name="t", output="err", ok=False)
         assert r.ok is False
 
 
 # ═══════════════════════════════════════════════════════════
-# 2.2 @instrument 装饰器
+# 2.2 @tool 装饰器
 # ═══════════════════════════════════════════════════════════
 
-class TestInstrumentDecorator:
+class TestToolDecorator:
     def test_register_and_catalog(self):
         _register_echo()
         assert "echo" in catalog()
 
     def test_returns_original_function(self):
-        fn = _register_echo()
-        assert callable(fn)
-        assert fn(text="hi") == "echo: hi"
+        handler = _register_echo()
+        assert callable(handler)
+        assert handler(text="hi") == "echo: hi"
 
     def test_overwrite_same_name(self):
         _register_echo()
         # 再次注册同名工具
-        @instrument("echo", "Overwritten", {})
+        @tool("echo", "Overwritten", {})
         def echo_v2() -> str:
             return "v2"
         assert catalog()["echo"].description == "Overwritten"
@@ -835,8 +835,8 @@ class TestInstrumentDecorator:
         assert spec.risk_level == "read"
 
     def test_non_string_name_rejected_without_catalog_mutation(self):
-        with pytest.raises(ValueError, match="instrument name"):
-            @instrument(["bad_name"], "Bad", {})
+        with pytest.raises(ValueError, match="tool name"):
+            @tool(["bad_name"], "Bad", {})
             def bad_name() -> str:
                 return "bad"
 
@@ -844,7 +844,7 @@ class TestInstrumentDecorator:
 
     def test_invalid_risk_level_rejected(self):
         with pytest.raises(ValueError, match="risk_level"):
-            @instrument("bad_risk", "Bad", {}, risk_level="writee")
+            @tool("bad_risk", "Bad", {}, risk_level="writee")
             def bad_risk() -> str:
                 return "bad"
 
@@ -852,7 +852,7 @@ class TestInstrumentDecorator:
 
     def test_non_string_risk_level_rejected_without_type_error(self):
         with pytest.raises(ValueError, match="risk_level"):
-            @instrument("bad_risk_type", "Bad", {}, risk_level=["write"])
+            @tool("bad_risk_type", "Bad", {}, risk_level=["write"])
             def bad_risk_type() -> str:
                 return "bad"
 
@@ -860,7 +860,7 @@ class TestInstrumentDecorator:
 
     def test_non_object_parameters_rejected_without_catalog_mutation(self):
         with pytest.raises(ValueError, match="parameters"):
-            @instrument("bad_parameters", "Bad", [])
+            @tool("bad_parameters", "Bad", [])
             def bad_parameters() -> str:
                 return "bad"
 
@@ -868,7 +868,7 @@ class TestInstrumentDecorator:
 
     def test_readonly_requires_read_risk(self):
         with pytest.raises(ValueError, match="readonly"):
-            @instrument("bad_readonly", "Bad", {}, readonly=True, risk_level="write")
+            @tool("bad_readonly", "Bad", {}, readonly=True, risk_level="write")
             def bad_readonly() -> str:
                 return "bad"
 
@@ -903,7 +903,7 @@ class TestCatalogLookupSchemas:
         assert "parameters" in item
 
     def test_schemas_parameters_do_not_expose_catalog_mutation(self):
-        @instrument(
+        @tool(
             "schema_isolated",
             "Schema isolated",
             {"type": "object", "properties": {"text": {"type": "string"}}},
@@ -1022,16 +1022,16 @@ class TestRunOne:
         assert r.ok is True
         assert r.call_id == "call"
 
-    def test_unknown_instrument(self):
+    def test_unknown_tool(self):
         r = run_one("c1", "no_such_tool", {})
         assert r.ok is False
         assert "Unknown" in r.output
 
-    def test_non_string_instrument_name_rejected(self):
+    def test_non_string_tool_name_rejected(self):
         r = run_one("c1", ["bad"], {})
 
         assert r.ok is False
-        assert "Invalid instrument name" in r.output
+        assert "Invalid tool name" in r.output
 
     def test_non_object_args_rejected(self):
         _register_echo()
@@ -1662,7 +1662,7 @@ class TestRunOne:
     def test_permission_check_exception_returns_error_without_execution(self):
         executed: list[str] = []
 
-        @instrument("guarded_tool", "Guarded", {})
+        @tool("guarded_tool", "Guarded", {})
         def guarded_tool() -> str:
             executed.append("ran")
             return "ok"
@@ -1703,11 +1703,11 @@ class TestRunBatch:
         assert "calls must be a list" in results[0].output
 
     def test_order_preserved(self):
-        @instrument("a", "A", {}, readonly=True, risk_level="read")
+        @tool("a", "A", {}, readonly=True, risk_level="read")
         def tool_a() -> str:
             return "a"
 
-        @instrument("b", "B", {}, readonly=True, risk_level="read")
+        @tool("b", "B", {}, readonly=True, risk_level="read")
         def tool_b() -> str:
             return "b"
 
@@ -1720,12 +1720,12 @@ class TestRunBatch:
         """全部只读工具应并发执行。"""
         executed_threads: list[str] = []
 
-        @instrument("r1", "R1", {}, readonly=True, risk_level="read")
+        @tool("r1", "R1", {}, readonly=True, risk_level="read")
         def r1() -> str:
             executed_threads.append(threading.current_thread().name)
             return "r1"
 
-        @instrument("r2", "R2", {}, readonly=True, risk_level="read")
+        @tool("r2", "R2", {}, readonly=True, risk_level="read")
         def r2() -> str:
             executed_threads.append(threading.current_thread().name)
             return "r2"
@@ -1776,7 +1776,7 @@ class TestRunBatch:
 
         assert len(results) == 1
         assert results[0].ok is False
-        assert "Invalid instrument name" in results[0].output
+        assert "Invalid tool name" in results[0].output
 
     def test_malformed_call_id_gets_indexed_fallback(self):
         _register_echo()

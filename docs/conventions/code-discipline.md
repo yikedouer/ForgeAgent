@@ -15,7 +15,7 @@
 | 对象 | 风格 | 示例 |
 |------|------|------|
 | 模块/文件 | snake_case | `plan_mode.py`, `agent_store.py` |
-| 类 | PascalCase | `Engine`, `PermissionEnforcer`, `InstrumentSpec` |
+| 类 | PascalCase | `Engine`, `PermissionEnforcer`, `ToolSpec` |
 | 函数/方法 | snake_case | `run_batch()`, `chat_stream()`, `for_model()` |
 | 常量 | UPPER_SNAKE | `_PROVIDER_PRESETS`, `READ_ONLY_INSTRUMENTS` |
 | 私有成员 | 前缀 `_` | `_CATALOG`, `_active_engine`, `_enforcer` |
@@ -30,7 +30,7 @@
 
 ## 数据类设计
 
-- 不可变数据用 `@dataclass(frozen=True)`（如 `Playbook`, `InstrumentSpec`）
+- 不可变数据用 `@dataclass(frozen=True)`（如 `Playbook`, `ToolSpec`）
 - 可变配置用 `@dataclass`（如 `Settings`）
 - 避免继承，优先组合
 
@@ -53,12 +53,12 @@ ForgeError              # 基类
 单向依赖，禁止反向引用：
 
 ```
-interface/ → core/ → toolkit.py ← instruments/
+interface/ → core/ → toolkit.py ← tools/
                 ↓
           context/ / memory/ / skills/
 ```
 
-- **绝对禁止**：instruments/ 导入 core/、core/ 导入 interface/
+- **绝对禁止**：tools/ 导入 core/、core/ 导入 interface/
 - **全局状态最小化**：仅 `toolkit._CATALOG`（工具目录）和 `engine._active_engine`（当前引擎引用）
 
 ## 文件组织

@@ -42,7 +42,7 @@ def test_run_prompt_once_streams_text_response_and_closes_engine() -> None:
     engine.run.return_value = "done"
     output_console = MagicMock()
     on_token = MagicMock()
-    on_instrument = MagicMock()
+    on_tool = MagicMock()
 
     run_prompt_once(
         engine,
@@ -50,13 +50,13 @@ def test_run_prompt_once_streams_text_response_and_closes_engine() -> None:
         output_format="text",
         output_console=output_console,
         on_token=on_token,
-        on_instrument=on_instrument,
+        on_tool=on_tool,
     )
 
     engine.run.assert_called_once_with(
         "hello",
         on_token=on_token,
-        on_instrument=on_instrument,
+        on_tool=on_tool,
     )
     output_console.print.assert_called_once_with()
     engine.close.assert_called_once_with()
