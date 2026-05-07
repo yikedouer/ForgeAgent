@@ -35,6 +35,26 @@ def active_workspace_boundary_error(path: str) -> str | None:
     workspace = active_workspace()
     if workspace is None:
         return None
+    if _is_active_plan_file(path):
+        return None
     from ..core.permissions import check_workspace_boundary
 
     return check_workspace_boundary(path, workspace)
+
+
+def _is_active_plan_file(path: str) -> bool:
+    """Return True when *path* is the current plan-mode plan file."""
+    try:
+        from ..core.engine import _active_engine
+
+        if _active_engine is None:
+            return False
+        mode = getattr(getattr(_active_engine, "enforcer", None), "mode", None)
+        if getattr(mode, "value", None) != "plan":
+            return False
+        plan_file = getattr(getattr(_active_engine, "_plan", None), "plan_file_path", None)
+        if not plan_file:
+            return False
+        return Path(path).expanduser().resolve() == Path(plan_file).expanduser().resolve()
+    except Exception:
+        return False

@@ -1,6 +1,6 @@
 # 测试规范
 
-ForgeAgent 使用 pytest。当前全量测试为 `872 passed`。
+ForgeAgent 使用 pytest。当前全量测试为 `700 passed`。
 
 ## 常用命令
 
@@ -41,6 +41,7 @@ uv run --extra test python -m pytest tests/core/test_engine.py -q
 
 ## 测试要求
 
+- 优先按行为分组写表驱动测试，避免为同一规则堆叠大量只改输入值的测试函数。
 - 新工具至少覆盖注册、参数校验、权限/路径边界和成功路径。
 - Provider 不发真实网络请求，用 Mock OpenAI client。
 - Shell、文件写入、checkpoint、memory 测试必须使用临时目录。

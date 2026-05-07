@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from prompt_toolkit.document import Document
 
+from forgeagent.core.permissions import PermissionMode
 from forgeagent.core.settings import Settings
 from forgeagent.context.checkpoint import Checkpoint
 from forgeagent.interface import directive as directive_mod
-from forgeagent.interface.repl import ForgeREPL, main, _on_tool
+from forgeagent.interface.repl import ForgeCompleter, ForgeREPL, main, _on_tool
 from forgeagent.skills.playbook import invalidate_cache
 
 
@@ -43,6 +46,31 @@ def _fake_engine() -> MagicMock:
     return engine
 
 
+def _status_engine(
+    *,
+    mode: PermissionMode = PermissionMode.PROMPT,
+    tokens_in: int = 1234,
+    tokens_out: int = 56,
+    transcript: list[dict] | None = None,
+) -> MagicMock:
+    engine = _fake_engine()
+    engine.settings = Settings(
+        api_key="sk-test",
+        base_url="https://proxy.example/v1",
+        model="status-model",
+        context_budget=10000,
+        max_rounds=60,
+        workspace="/tmp/work",
+        permission_mode=mode.value,
+    )
+    engine.enforcer = SimpleNamespace(mode=mode)
+    engine.provider = SimpleNamespace(tokens_used=(0, 0))
+    engine._total_input_tokens = tokens_in
+    engine._total_output_tokens = tokens_out
+    engine.transcript = transcript if transcript is not None else []
+    return engine
+
+
 class TestReplSkillInvocation:
     def test_exit_closes_engine_resources(self):
         engine = _fake_engine()
@@ -62,6 +90,46 @@ class TestReplSkillInvocation:
         repl.do_model.assert_called_once_with("small-model")
         engine.run.assert_not_called()
 
+    def test_plan_command_with_argument_runs_argument_after_entering_plan_mode(self):
+        engine = _fake_engine()
+        engine.toggle_plan_mode = MagicMock(return_value="plan")
+        engine._plan = SimpleNamespace(plan_file_path="/tmp/plan.md")
+        repl = ForgeREPL(engine)
+
+        repl.default("/plan read README and write a plan")
+
+        engine.toggle_plan_mode.assert_called_once_with()
+        engine.run.assert_called_once()
+        assert engine.run.call_args.args[0] == "read README and write a plan"
+
+    def test_plan_command_prints_compact_timeline_status(self):
+        engine = _fake_engine()
+        engine.toggle_plan_mode = MagicMock(return_value="plan")
+        engine._plan = SimpleNamespace(plan_file_path="/tmp/plan.md")
+        repl = ForgeREPL(engine)
+        repl._console = MagicMock()
+
+        repl.default("/plan")
+
+        printed = "\n".join(str(call.args[0]) for call in repl._console.print.call_args_list)
+        assert "• [bold]Plan[/bold]" in printed
+        assert "Read-only planning mode enabled" in printed
+        assert "Draft: /tmp/plan.md" in printed
+        assert "Use read tools" not in printed
+        assert "describe your task" not in printed
+
+    def test_plan_command_with_multiline_argument_runs_second_line_as_task(self):
+        engine = _fake_engine()
+        engine.toggle_plan_mode = MagicMock(return_value="plan")
+        engine._plan = SimpleNamespace(plan_file_path="/tmp/plan.md")
+        repl = ForgeREPL(engine)
+
+        repl.default("/plan\nread README and write a plan")
+
+        engine.toggle_plan_mode.assert_called_once_with()
+        engine.run.assert_called_once()
+        assert engine.run.call_args.args[0] == "read README and write a plan"
+
     def test_slash_builtin_command_trims_leading_whitespace(self):
         engine = _fake_engine()
         repl = ForgeREPL(engine)
@@ -80,7 +148,7 @@ class TestReplSkillInvocation:
 
         engine.run.assert_not_called()
 
-    def test_plain_builtin_command_dispatches_without_cmd_module(self):
+    def test_plain_builtin_command_is_sent_to_engine(self):
         engine = _fake_engine()
         repl = ForgeREPL(engine)
         repl.do_usage = MagicMock(return_value=None)
@@ -88,17 +156,77 @@ class TestReplSkillInvocation:
         result = repl.default("usage")
 
         assert result is None
-        repl.do_usage.assert_called_once_with("")
-        engine.run.assert_not_called()
+        repl.do_usage.assert_not_called()
+        engine.run.assert_called_once()
+        assert engine.run.call_args.args[0] == "usage"
 
     def test_prompt_loop_stops_when_exit_command_returns_true(self):
         engine = _fake_engine()
         repl = ForgeREPL(engine)
-        repl._session.prompt = MagicMock(return_value="exit")
+        repl._session.prompt = MagicMock(return_value="/exit")
 
         repl.run()
 
         engine.close.assert_called_once_with()
+
+    def test_prompt_loop_ctrl_c_exits_when_idle(self):
+        engine = _fake_engine()
+        repl = ForgeREPL(engine)
+        repl._session.prompt = MagicMock(side_effect=KeyboardInterrupt)
+
+        repl.run()
+
+        engine.close.assert_called_once_with()
+
+    def test_command_completion_requires_slash_prefix(self):
+        completer = ForgeCompleter()
+
+        plain = list(completer.get_completions(Document("u"), None))
+        slash = list(completer.get_completions(Document("/u"), None))
+
+        assert plain == []
+        assert any(item.text == "/usage" for item in slash)
+
+    def test_repl_uses_codex_style_prompt(self):
+        repl = ForgeREPL(_fake_engine())
+
+        assert repl.prompt == "\n› "
+
+    def test_repl_runs_engine_with_timeline_event_callback(self):
+        engine = _fake_engine()
+        repl = ForgeREPL(engine)
+
+        repl.default("hello")
+
+        engine.run.assert_called_once()
+        assert engine.run.call_args.args[0] == "hello"
+        assert callable(engine.run.call_args.kwargs["on_tool"])
+        assert callable(engine.run.call_args.kwargs["on_event"])
+
+    def test_repl_timeline_groups_exploration_events(self):
+        repl = ForgeREPL(_fake_engine())
+        repl._console = MagicMock()
+
+        repl._on_tool("read_file", {"path": "README.md"})
+        repl._on_tool("glob_search", {"pattern": "**/*.py"})
+
+        printed = "\n".join(str(call.args[0]) for call in repl._console.print.call_args_list)
+        assert printed.count("• [bold]Explored[/bold]") == 1
+        assert "Read README.md" in printed
+        assert "Search **/*.py" in printed
+
+    def test_repl_timeline_omits_successful_tool_result_noise(self):
+        repl = ForgeREPL(_fake_engine())
+        repl._console = MagicMock()
+
+        repl._on_event("tool_result", {
+            "name": "read_file",
+            "ok": True,
+            "output_chars": 123,
+            "preview": "line1",
+        })
+
+        repl._console.print.assert_not_called()
 
     def test_inline_skill_runs_resolved_prompt_through_engine(
         self, tmp_path, monkeypatch,
@@ -175,6 +303,60 @@ class TestReplSkillInvocation:
         assert calls[0][0] == "general"
         assert "skill:forker" == calls[0][1]
         assert "Fork task" in calls[0][2]
+
+
+class TestReplStatusBar:
+    def test_status_line_shows_mode_permission_usage_and_context_usage(self):
+        engine = _status_engine(
+            tokens_in=730061,
+            tokens_out=6365,
+            transcript=[{"role": "user", "content": "hello"}],
+        )
+        repl = ForgeREPL(engine)
+
+        status = repl._status_line()
+
+        assert "mode: normal" in status
+        assert "perm: prompt" in status
+        assert "model: status-model" in status
+        assert "usage: 730,061 in / 6,365 out" in status
+        assert "ctx: 0%" in status
+        assert "tokens:" not in status
+        assert "ctx: 575%" not in status
+
+    def test_status_line_shows_plan_mode_when_permission_mode_is_plan(self):
+        engine = _status_engine(mode=PermissionMode.PLAN)
+        repl = ForgeREPL(engine)
+
+        status = repl._status_line()
+
+        assert "mode: plan" in status
+        assert "perm: plan" in status
+
+    def test_status_bar_formats_status_line_with_soft_styles(self):
+        engine = _status_engine()
+        repl = ForgeREPL(engine)
+
+        fragments = repl._status_bar()
+        text = "".join(text for _style, text in fragments)
+        styles = {style for style, _text in fragments}
+
+        assert text == repl._status_line()
+        assert "class:status.label" in styles
+        assert "class:status.value" in styles
+        assert "class:status.sep" in styles
+
+    def test_prompt_session_uses_bottom_toolbar_without_reverse_highlight(self):
+        engine = _status_engine()
+        repl = ForgeREPL(engine)
+
+        attrs = repl._session.style.get_attrs_for_style_str("class:bottom-toolbar")
+
+        assert callable(repl._session.bottom_toolbar)
+        assert "".join(text for _style, text in repl._session.bottom_toolbar()) == repl._status_line()
+        assert attrs.reverse is False
+        assert attrs.bgcolor == "202020"
+        assert attrs.color == "8a8a8a"
 
 
 class TestToolCallback:
@@ -447,6 +629,42 @@ class TestCliOverrides:
             "session_id": "s-json",
             "usage": {"input_tokens": 12, "output_tokens": 34},
         }
+
+    def test_interactive_mode_uses_inline_repl_by_default(self, monkeypatch):
+        base_settings = Settings(
+            api_key="sk-env",
+            base_url="https://proxy.example/v1",
+            model="base-model",
+            context_budget=128000,
+            max_rounds=60,
+            workspace="/tmp/work",
+            permission_mode="prompt",
+        )
+        monkeypatch.setattr("sys.argv", ["forgeagent"])
+        monkeypatch.setattr("forgeagent.interface.repl.Settings.resolve", lambda: base_settings)
+        monkeypatch.setattr("forgeagent.interface.repl.Provider", lambda settings: MagicMock(tokens_used=(0, 0)))
+
+        class FakeEngine:
+            def __init__(self, settings, provider):
+                self.settings = settings
+                self.provider = provider
+                self.enforcer = MagicMock()
+
+        ran = []
+
+        class FakeRepl:
+            def __init__(self, engine):
+                self.engine = engine
+
+            def run(self):
+                ran.append(self.engine.settings.model)
+
+        monkeypatch.setattr("forgeagent.interface.repl.Engine", FakeEngine)
+        monkeypatch.setattr("forgeagent.interface.repl.ForgeREPL", FakeRepl)
+
+        main()
+
+        assert ran == ["base-model"]
 
     def test_blank_resume_arg_is_rejected_before_loading_checkpoint(
         self, monkeypatch,

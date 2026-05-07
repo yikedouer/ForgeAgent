@@ -137,10 +137,10 @@ else:
 `ForgeREPL.default()` 的分发逻辑：
 
 ```python
-if self._dispatch_command(line):
+if line.lstrip().startswith("/") and self._dispatch_command(line):
     return
-if line.startswith("/"):
-    ...
+if line.lstrip().startswith("/"):
+    self._invoke_skill(line)
 else:
     self.engine.run(line, on_token=_on_token, on_tool=_on_tool)
 ```
@@ -169,7 +169,7 @@ REPL 内置命令集合，作为 mixin 注入 `ForgeREPL`。
 设计点：
 
 - 命令都写成 `do_xxx(arg)`，便于 `ForgeREPL._dispatch_command()` 通过 `getattr()` 动态分发。
-- `/model xxx` 也可以复用 `do_model()`，避免斜杠命令和普通命令两套实现。
+- 只有 `/model xxx` 这类斜杠输入会触发内置命令；裸 `model` 会作为普通用户任务交给 Agent。
 
 ### `forgeagent/interface/directive.py`
 

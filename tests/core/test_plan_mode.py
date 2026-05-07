@@ -126,6 +126,33 @@ class TestPlanModeController:
         assert enforcer.mode == PermissionMode.WRITE
         assert controller.plan_file_path is None
 
+    def test_exit_with_approval_runs_without_existing_event_loop(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path))
+        monkeypatch.setattr(
+            "forgeagent.core.plan_mode.asyncio.get_event_loop",
+            lambda: (_ for _ in ()).throw(RuntimeError("no current event loop")),
+        )
+        enforcer = PermissionEnforcer(PermissionMode.PROMPT, tmp_path)
+        controller = PlanModeController(
+            session_id=lambda: "abc123",
+            enforcer=enforcer,
+            transcript=[],
+        )
+
+        async def approve(plan_content: str) -> dict:
+            assert "planned work" in plan_content
+            return {"choice": "manual-execute"}
+
+        controller.set_approval_fn(approve)
+        controller.execute_tool("enter_plan_mode")
+        Path(controller.plan_file_path).write_text("planned work", encoding="utf-8")
+
+        result = controller.execute_tool("exit_plan_mode")
+
+        assert "User approved the plan" in result
+        assert enforcer.mode == PermissionMode.PROMPT
+        assert controller.plan_file_path is None
+
     def test_filter_blocks_shell_and_appends_tool_result(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(tmp_path))
         transcript: list[dict] = []

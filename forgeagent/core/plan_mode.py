@@ -167,9 +167,7 @@ class PlanModeController:
                 plan_content = Path(self.plan_file_path).read_text(encoding="utf-8")
 
             if self.approval_fn:
-                result = asyncio.get_event_loop().run_until_complete(
-                    self.approval_fn(plan_content)
-                )
+                result = asyncio.run(self.approval_fn(plan_content))
                 return self.handle_approval(result, plan_content)
 
             self.enforcer.mode = PermissionMode(self.pre_plan_mode or "prompt")
@@ -263,7 +261,11 @@ class PlanModeController:
                     spec = self.lookup_tool(fn_name) if self.lookup_tool else None
                     if spec:
                         try:
-                            output = spec.fn(**args)
+                            handler = getattr(spec, "handler", None) or getattr(spec, "fn", None)
+                            if not callable(handler):
+                                output = f"Error: tool '{fn_name}' has no callable handler"
+                            else:
+                                output = handler(**args)
                         except Exception as exc:
                             output = f"Error: {exc}"
                         self.transcript.append({

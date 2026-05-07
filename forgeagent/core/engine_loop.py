@@ -28,6 +28,7 @@ AppendMessageFn = Callable[[dict], object]
 PersistResultFn = Callable[[str, str, str], str]
 LogFn = Callable[..., object]
 WarnFn = Callable[[str], None]
+EventFn = Callable[[str, dict], None]
 log = get_logger(__name__)
 
 
@@ -95,20 +96,57 @@ def _tool_call_id(value: object, fallback: str) -> str:
     return value if isinstance(value, str) and value else fallback
 
 
+def _preview(text: object, limit: int = 240) -> str:
+    value = str(text)
+    if len(value) <= limit:
+        return value
+    return value[:limit - 3] + "..."
+
+
+def emit_event(
+    callback: EventFn | None,
+    kind: str,
+    payload: dict,
+    *,
+    warn: WarnFn | None = None,
+) -> None:
+    if callback is None:
+        return
+    try:
+        callback(kind, payload)
+    except Exception as exc:
+        if warn:
+            warn(f"事件回调异常: {exc}")
+
+
 def append_plan_tool_results(
     calls: list[ToolCall],
     *,
     execute_plan_tool: Callable[[str], str],
     append_message: Callable[[dict], object],
+    on_event: EventFn | None = None,
+    warn: WarnFn | None = None,
 ) -> None:
     """Execute plan-mode tool calls and append their tool messages."""
     for idx, (call_id, fn_name, _args) in enumerate(calls):
         result_text = execute_plan_tool(str(fn_name))
+        resolved_call_id = _tool_call_id(call_id, f"call_{idx}")
         append_message({
             "role": "tool",
-            "tool_call_id": _tool_call_id(call_id, f"call_{idx}"),
+            "tool_call_id": resolved_call_id,
             "content": result_text,
         })
+        emit_event(
+            on_event,
+            "plan_tool_result",
+            {
+                "call_id": resolved_call_id,
+                "name": str(fn_name),
+                "output_chars": len(result_text),
+                "preview": _preview(result_text),
+            },
+            warn=warn,
+        )
 
 
 def format_tool_call_log(call: tuple[object, object, object]) -> tuple[str, tuple[object, ...]]:
@@ -166,6 +204,7 @@ def execute_normal_tool_calls(
     persist: PersistResultFn = persist_if_large,
     info: LogFn | None = None,
     warn: Callable[[str], object] | None = None,
+    on_event: EventFn | None = None,
 ) -> list[object]:
     """Run normal tool calls and feed persisted results back to transcript."""
     for call in calls:
@@ -179,6 +218,18 @@ def execute_normal_tool_calls(
         message, args = format_tool_result_log(result)
         if info is not None:
             info(message, *args)
+        emit_event(
+            on_event,
+            "tool_result",
+            {
+                "call_id": result.call_id,
+                "name": result.name,
+                "ok": result.ok,
+                "output_chars": len(result.output),
+                "preview": _preview(result.output),
+            },
+            warn=warn,
+        )
 
     persist_tool_results(
         session_id,
@@ -334,6 +385,7 @@ def run_agent_loop(
     user_input: str,
     on_token: Callable[[str], None] | None,
     on_tool: Callable[[str, dict], None] | None,
+    on_event: EventFn | None = None,
 ) -> str:
     """Process one user message through the full Agent loop."""
     append_message = state._append_message
@@ -352,6 +404,12 @@ def run_agent_loop(
 
     for _ in range(state.settings.max_rounds):
         state._round += 1
+        emit_event(
+            on_event,
+            "round_start",
+            {"round": state._round},
+            warn=log.warning,
+        )
         log.debug("── 第 %d 轮 ──", state._round)
 
         prepared = prepare_round_inputs(
@@ -381,6 +439,18 @@ def run_agent_loop(
         completion = recovery.completion
 
         usage = record_completion_usage(state, completion, now=time.time())
+        emit_event(
+            on_event,
+            "llm_response",
+            {
+                "round": state._round,
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "text_chars": usage.text_chars,
+                "tool_calls": usage.invocation_count,
+            },
+            warn=log.warning,
+        )
         log.info(
             "LLM 响应: in=%d out=%d  文本=%d字  工具调用=%d个",
             usage.input_tokens,
@@ -412,6 +482,8 @@ def run_agent_loop(
             plan_calls,
             execute_plan_tool=state._execute_plan_tool,
             append_message=append_message,
+            on_event=on_event,
+            warn=log.warning,
         )
 
         if state.enforcer.mode == PermissionMode.PLAN and state._plan.plan_file_path:
@@ -425,6 +497,7 @@ def run_agent_loop(
             persist=persist_if_large,
             info=log.info,
             warn=log.warning,
+            on_event=on_event,
         )
 
     log.warning("循环预算耗尽（%d 轮）", state.settings.max_rounds)

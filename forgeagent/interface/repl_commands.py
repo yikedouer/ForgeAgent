@@ -16,21 +16,6 @@ from .stats import count_workspace_lines
 class ForgeReplCommandMixin:
     """Built-in slash aliases, skills, and REPL commands."""
 
-    def _invoke_slash_builtin(self, line: str) -> bool:
-        parts = line[1:].lstrip().split(maxsplit=1)
-        if not parts:
-            return False
-        name = parts[0].strip()
-        arg = parts[1] if len(parts) > 1 else ""
-        if not name:
-            return False
-
-        command = getattr(self, f"do_{name}", None)
-        if command is None:
-            return False
-        command(arg)
-        return True
-
     def _invoke_skill(self, line: str) -> None:
         parts = line[1:].lstrip().split(maxsplit=1)
         if not parts:
@@ -68,6 +53,7 @@ class ForgeReplCommandMixin:
                 prompt,
                 on_token=self._on_token,
                 on_tool=self._on_tool,
+                on_event=getattr(self, "_on_event", None),
             )
             if answer:
                 self._console.print()
@@ -78,27 +64,27 @@ class ForgeReplCommandMixin:
 
     def do_help(self, arg: str) -> None:
         commands = [
-            ("help", "Show this help message"),
-            ("save", "Save the current session to disk"),
-            ("sessions", "List saved sessions"),
-            ("usage", "Show token usage statistics"),
-            ("cost", "Estimate token cost for this session"),
-            ("skills", "List available skills"),
-            ("plan", "Toggle plan mode (read-only planning phase)"),
-            ("model [name]", "Show or switch the current model"),
-            ("compact", "Manually trigger conversation compaction"),
-            ("clear", "Clear the current conversation"),
-            ("memory", "List persistent memories for this project"),
-            ("remember <text>", "Quick-save a feedback memory"),
-            ("diff", "Show files modified in this session (git diff)"),
-            ("export [file]", "Export current conversation as Markdown"),
-            ("stats", "Count lines of code in current workspace"),
-            ("exit / quit", "Exit the REPL"),
+            ("/help", "Show this help message"),
+            ("/save", "Save the current session to disk"),
+            ("/sessions", "List saved sessions"),
+            ("/usage", "Show token usage statistics"),
+            ("/cost", "Estimate token cost for this session"),
+            ("/skills", "List available skills"),
+            ("/plan", "Toggle plan mode (read-only planning phase)"),
+            ("/model [name]", "Show or switch the current model"),
+            ("/compact", "Manually trigger conversation compaction"),
+            ("/clear", "Clear the current conversation"),
+            ("/memory", "List persistent memories for this project"),
+            ("/remember <text>", "Quick-save a feedback memory"),
+            ("/diff", "Show files modified in this session (git diff)"),
+            ("/export [file]", "Export current conversation as Markdown"),
+            ("/stats", "Count lines of code in current workspace"),
+            ("/exit / /quit", "Exit the REPL"),
         ]
-        self._console.print("\n[bold]Commands[/bold] (prefix with nothing, just type):")
+        self._console.print("\n[bold]Commands[/bold] (prefix with /):")
         for name, desc in commands:
-            self._console.print(f"  [cyan]{name:<16}[/cyan] {desc}")
-        self._console.print("\n[bold]Skills[/bold] (prefix with /):\n  /skillname [args]")
+            self._console.print(f"  [cyan]{name:<18}[/cyan] {desc}")
+        self._console.print("\n[bold]Skills[/bold]:\n  /skillname [args]")
 
     def do_save(self, _arg: str) -> None:
         path = self.engine.save_checkpoint()
@@ -130,11 +116,21 @@ class ForgeReplCommandMixin:
         new_mode = self.engine.toggle_plan_mode()
         if new_mode == "plan":
             self._console.print(
-                f"  [bold cyan]Entered plan mode (read-only).[/bold cyan]\n"
-                f"  Plan file: {self.engine._plan.plan_file_path}\n"
-                f"  [dim]Use read tools to explore, then describe your task. "
-                f"Agent will write a plan for your approval.[/dim]"
+                f"\n• [bold]Plan[/bold]\n"
+                f"  └ Read-only planning mode enabled\n"
+                f"  └ Draft: {self.engine._plan.plan_file_path}"
             )
+            task = _arg.strip()
+            if task:
+                self._console.print()
+                answer = self.engine.run(
+                    task,
+                    on_token=self._on_token,
+                    on_tool=self._on_tool,
+                    on_event=getattr(self, "_on_event", None),
+                )
+                if answer:
+                    self._console.print()
         else:
             self._console.print(f"  [green]Exited plan mode → {new_mode} mode[/green]")
 
@@ -220,8 +216,8 @@ class ForgeReplCommandMixin:
     def do_remember(self, arg: str) -> None:
         text = arg.strip()
         if not text:
-            self._console.print("  [yellow]Usage: remember <text>[/yellow]")
-            self._console.print("  [dim]Example: remember always respond in Chinese[/dim]")
+            self._console.print("  [yellow]Usage: /remember <text>[/yellow]")
+            self._console.print("  [dim]Example: /remember always respond in Chinese[/dim]")
             return
         filename = save_memory(
             self.engine.settings.workspace,

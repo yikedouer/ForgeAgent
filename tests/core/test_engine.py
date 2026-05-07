@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from concurrent.futures import Future
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
@@ -422,6 +423,31 @@ class TestPlanMode:
         # 应在 transcript 中记录被阻止的消息
         blocked = [m for m in eng.transcript if "Blocked" in str(m.get("content", ""))]
         assert len(blocked) > 0
+
+    def test_filter_plan_mode_writes_plan_file_outside_workspace(self, engine_env, tmp_path, monkeypatch):
+        from forgeagent.tools.writer import write_file
+
+        plans_dir = tmp_path / "plans"
+        monkeypatch.setenv("FORGEAGENT_PLANS_DIR", str(plans_dir))
+        eng, _ = engine_env
+        eng._execute_plan_tool("enter_plan_mode")
+        eng._plan.lookup_tool = lambda name: (
+            SimpleNamespace(handler=write_file) if name == "write_file" else None
+        )
+        plan_file = Path(eng._plan.plan_file_path)
+
+        result = eng._filter_plan_mode_calls([
+            ("c1", "write_file", {"path": str(plan_file), "content": "plan\n"})
+        ])
+
+        assert result == []
+        assert plan_file.read_text(encoding="utf-8") == "plan\n"
+        assert any(
+            msg.get("role") == "tool"
+            and msg.get("tool_call_id") == "c1"
+            and "Created" in msg.get("content", "")
+            for msg in eng.transcript
+        )
 
     def test_filter_plan_mode_blocked_edit_uses_call_id_fallback(self, engine_env):
         eng, _ = engine_env

@@ -31,6 +31,32 @@ def test_execute_normal_tool_calls_logs_runs_persists_and_appends_messages():
     ]
 
 
+def test_execute_normal_tool_calls_emits_result_events():
+    events = []
+
+    execute_normal_tool_calls(
+        session_id="session-1",
+        calls=[("call-1", "read_file", {"path": "a.py"})],
+        run_batch=lambda _calls: [ToolResult("call-1", "read_file", "raw output")],
+        append_message=lambda _message: None,
+        persist=lambda _session_id, _name, output: output,
+        on_event=lambda kind, payload: events.append((kind, payload)),
+    )
+
+    assert events == [
+        (
+            "tool_result",
+            {
+                "call_id": "call-1",
+                "name": "read_file",
+                "ok": True,
+                "output_chars": 10,
+                "preview": "raw output",
+            },
+        )
+    ]
+
+
 def test_execute_normal_tool_calls_warns_when_persist_fails_and_appends_raw_output():
     warnings = []
     appended = []

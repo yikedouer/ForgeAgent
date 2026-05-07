@@ -54,14 +54,14 @@ uv run python -m forgeagent --version
 
 | 命令 | 说明 |
 |---|---|
-| `help` | 查看命令 |
-| `save` / `sessions` | 保存和列出会话 |
-| `usage` / `cost` | 查看 token 用量和估算成本 |
-| `model <name>` | 切换模型，复用当前 endpoint |
-| `compact` | 手动压缩上下文 |
-| `memory` / `remember <text>` | 查看或保存记忆 |
-| `plan` | 切换计划模式 |
-| `export [file]` | 导出当前对话 |
+| `/help` | 查看命令 |
+| `/save` / `/sessions` | 保存和列出会话 |
+| `/usage` / `/cost` | 查看 token 用量和估算成本 |
+| `/model <name>` | 切换模型，复用当前 endpoint |
+| `/compact` | 手动压缩上下文 |
+| `/memory` / `/remember <text>` | 查看或保存记忆 |
+| `/plan` | 切换计划模式 |
+| `/export [file]` | 导出当前对话 |
 | `/skill-name` | 调用 Skill |
 
 ## 项目结构
@@ -125,7 +125,7 @@ uv run python -m compileall -q forgeagent
 uv run --extra test python -m pytest -q
 ```
 
-当前全量测试：`872 passed`。
+当前全量测试：`700 passed`。
 
 ## License
 

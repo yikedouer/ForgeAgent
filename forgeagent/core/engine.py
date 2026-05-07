@@ -133,7 +133,8 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
 
     def run(self, user_input: str,
             on_token: Callable[[str], None] | None = None,
-            on_tool: Callable[[str, dict], None] | None = None) -> str:
+            on_tool: Callable[[str, dict], None] | None = None,
+            on_event: Callable[[str, dict], None] | None = None) -> str:
         """处理一条用户消息，执行完整的 Agent 循环。
 
         循环持续运行，直到模型返回纯文本（无工具调用）
@@ -144,6 +145,7 @@ class Engine(EnginePlanApiMixin, EngineCheckpointApiMixin):
             user_input=user_input,
             on_token=on_token,
             on_tool=on_tool,
+            on_event=on_event,
         )
 
     def _autosave_checkpoint(self) -> None:
