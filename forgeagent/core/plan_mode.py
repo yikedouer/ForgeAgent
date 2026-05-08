@@ -1,10 +1,10 @@
-"""Plan Mode — 只读规划阶段与 4 选项审批工作流。
+"""Plan Mode — read-only planning phase and approval workflow.
 
 让 Agent 在做任何修改之前先探索代码并将结构化计划写入专用文件。
 工作流：
 
   enter_plan_mode → Agent 读代码 → 写 plan 文件 → exit_plan_mode
-  → 用户审查 → 4 选项审批 → 恢复执行（或继续规划）
+  → 用户审查 → 执行/继续规划审批 → 恢复执行（或继续规划）
 
 Plan 文件持久化到 ~/.forgeagent/plans/，可在上下文清除后幸存。
 """
@@ -53,7 +53,7 @@ EDIT_TOOL_NAMES: set[str] = {"write_file", "edit_file"}
 # ── 类型 ──────────────────────────────────────────────────
 
 class PlanApprovalResult(TypedDict, total=False):
-    choice: str           # "clear-and-execute" | "execute" | "manual-execute" | "keep-planning"
+    choice: str           # "execute" | "keep-planning" plus legacy internal choices
     feedback: str | None  # user feedback when choice == "keep-planning"
 
 

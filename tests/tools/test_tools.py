@@ -305,6 +305,23 @@ class TestShell:
         assert shell_mod._wd == str(sub)
         assert "__FORGEAGENT_PWD__/not-a-dir" in shell("printf '__FORGEAGENT_PWD__/not-a-dir\\n'")
 
+    def test_stale_cwd_is_reset_when_active_workspace_changes(self, tmp_path, monkeypatch):
+        first = tmp_path / "first"
+        second = tmp_path / "second"
+        first.mkdir()
+        second.mkdir()
+        shell_mod._wd = str(first)
+        monkeypatch.setattr(
+            engine_mod,
+            "_active_engine",
+            SimpleNamespace(settings=SimpleNamespace(workspace=str(second))),
+        )
+
+        result = shell("pwd")
+
+        assert str(second) in result
+        assert shell_mod._wd == str(second)
+
 
 class TestMemoryTools:
     @patch("forgeagent.tools.memory._get_workspace", return_value="/tmp/ws")

@@ -142,7 +142,7 @@ if line.lstrip().startswith("/") and self._dispatch_command(line):
 if line.lstrip().startswith("/"):
     self._invoke_skill(line)
 else:
-    self.engine.run(line, on_token=_on_token, on_tool=_on_tool)
+    self.engine.run(line, on_token=_on_token, on_tool=_on_tool, on_event=self._on_event)
 ```
 
 学习重点：
@@ -217,7 +217,7 @@ CLI 启动前校验和参数覆盖。
 
 核心函数：
 
-- `run_prompt_once()`：执行 `engine.run(prompt)`，按 `text/json/jsonl` 输出结果，最后关闭 Engine。
+- `run_prompt_once()`：执行 `engine.run(prompt)`，按 `text/json` 输出结果，最后关闭 Engine；`jsonl` 仅用于离线 `export`。
 - `close_engine()`：对 Engine 关闭做防御式封装。
 
 学习重点：
@@ -358,7 +358,7 @@ Engine 的主对象。它负责持有状态和暴露公开 API。
 核心方法：
 
 ```python
-def run(self, user_input, on_token=None, on_tool=None):
+def run(self, user_input, on_token=None, on_tool=None, on_event=None):
     return run_agent_loop(self, user_input=user_input, ...)
 ```
 

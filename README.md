@@ -125,7 +125,7 @@ uv run python -m compileall -q forgeagent
 uv run --extra test python -m pytest -q
 ```
 
-当前全量测试：`700 passed`。
+当前全量测试：`721 passed`。
 
 ## License
 

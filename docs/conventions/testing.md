@@ -1,6 +1,6 @@
 # 测试规范
 
-ForgeAgent 使用 pytest。当前全量测试为 `700 passed`。
+ForgeAgent 使用 pytest。当前全量测试为 `721 passed`。
 
 ## 常用命令
 

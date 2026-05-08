@@ -1,13 +1,13 @@
 # ForgeAgent - Agent Context
 
-> 从零构建的 Python Coding Agent，学习 claw-code 核心设计，用 ~9,000 行 Python 复现 Agent Loop + Tool System + Sub-Agent + Memory。仅依赖 openai + rich。
+> 从零构建的 Python Coding Agent，学习 claw-code 核心设计，用 Python 复现 Agent Loop + Tool System + Sub-Agent + Memory。依赖保持克制，以 `pyproject.toml` 为准。
 
 ## Quick Start
 
 ```bash
 uv sync             # 安装依赖（推荐 uv）
 uv run forgeagent   # 启动 REPL
-uv run pytest       # 运行测试（870 用例）
+uv run pytest       # 运行测试
 ```
 
 传统方式：`pip install -e .` 后直接 `forgeagent`。
@@ -18,7 +18,7 @@ uv run pytest       # 运行测试（870 用例）
 - REPL 内置命令：`/help`、`/save`、`/usage`、`/plan`、`/model [name]`、`/compact`、`/memory`、`/remember <text>`、`/diff`、`/skills`。
 - 技能调用：`/commit`、`/review` 等前缀 `/` 加技能名。
 - 切换模型：`/model qwen3.5-flash` 实时切换，Provider 自动推断。
-- 计划模式：`/plan` 进入只读规划，生成计划后四选项审批（清空执行/保留执行/逐步审批/继续规划）。
+- 计划模式：`/plan` 进入只读规划，生成计划后询问是否执行；拒绝则继续规划。
 - 测试：`uv run pytest` 全量运行；`uv run pytest tests/core/` 按模块运行。
 
 ## Module Map
@@ -68,7 +68,7 @@ interface/ ──→ core/ ──→ toolkit.py
 - 工具开发规范（如何添加新工具）：[docs/conventions/tool-development.md](docs/conventions/tool-development.md)
 - 测试规范（fixture、命名、覆盖范围）：[docs/conventions/testing.md](docs/conventions/testing.md)
 
-代码风格：PEP 8，类型注解，dataclass 优先。两个三方依赖上限（openai + rich）。
+代码风格：PEP 8，类型注解，dataclass 优先。依赖新增必须有明确收益，并同步更新 `pyproject.toml` 与文档。
 
 ## Configuration
 

@@ -190,6 +190,21 @@ def _command_with_pwd_marker(command: str) -> str:
     )
 
 
+def _workspace_scoped_cwd(current: str) -> str:
+    """Keep persisted shell cwd inside the currently active workspace."""
+    workspace = active_workspace()
+    if workspace is None:
+        return current
+    if os.path.isdir(current):
+        from ..core.permissions import check_workspace_boundary
+
+        if check_workspace_boundary(current, workspace) is None:
+            return current
+    if os.path.isdir(workspace):
+        return os.path.normpath(workspace)
+    return current
+
+
 def _extract_pwd_marker(output: str) -> tuple[str, str | None]:
     marker_at = output.rfind(_PWD_MARKER)
     if marker_at < 0:
@@ -235,8 +250,9 @@ def shell(command: str, timeout: int = 120) -> str:
     if not isinstance(timeout, int) or isinstance(timeout, bool) or timeout <= 0:
         return "INVALID TIMEOUT: timeout must be positive."
 
-    if _wd is None:
+    if _wd is None or not os.path.isdir(_wd):
         _wd = _initial_working_directory()
+    _wd = _workspace_scoped_cwd(_wd)
 
     run_cwd = _wd
     workspace = active_workspace()
